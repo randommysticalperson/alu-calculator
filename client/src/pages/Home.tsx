@@ -11,9 +11,10 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare } from "lucide-react";
+import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare, Globe } from "lucide-react";
 import EmlSpiral from "@/components/EmlSpiral";
 import PrimRecursive from "@/components/PrimRecursive";
+import { type Lang, t, langLabels, langNames, translations } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -450,6 +451,9 @@ function Float32BitField({ value }: { value: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
+  const [lang, setLang] = useState<Lang>("en");
+  const tr = useCallback((key: Parameters<typeof t>[1], vars?: Record<string, string>) => t(lang, key, vars), [lang]);
+
   const [display, setDisplay] = useState("0");
   const [prevValue, setPrevValue] = useState<string | null>(null);
   const [operator, setOperator] = useState<string | null>(null);
@@ -703,12 +707,12 @@ export default function Home() {
   // ── Mode tabs ──────────────────────────────────────────────────────────────
 
   const tabs: { id: Mode; label: string; icon: React.ReactNode; color: string }[] = [
-    { id: "standard", label: "CALC", icon: <Calculator className="w-3.5 h-3.5" />, color: "emerald" },
-    { id: "alu", label: "ALU", icon: <Cpu className="w-3.5 h-3.5" />, color: "cyan" },
-    { id: "eml", label: "EML", icon: <FlaskConical className="w-3.5 h-3.5" />, color: "violet" },
-    { id: "float", label: "FLOAT", icon: <Binary className="w-3.5 h-3.5" />, color: "amber" },
-    { id: "spiral", label: "TREE", icon: <GitBranch className="w-3.5 h-3.5" />, color: "rose" },
-    { id: "primrec", label: "PR-FN", icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "teal" },
+    { id: "standard", label: tr("tabCalc"), icon: <Calculator className="w-3.5 h-3.5" />, color: "emerald" },
+    { id: "alu", label: tr("tabAlu"), icon: <Cpu className="w-3.5 h-3.5" />, color: "cyan" },
+    { id: "eml", label: tr("tabEml"), icon: <FlaskConical className="w-3.5 h-3.5" />, color: "violet" },
+    { id: "float", label: tr("tabFloat"), icon: <Binary className="w-3.5 h-3.5" />, color: "amber" },
+    { id: "spiral", label: tr("tabTree"), icon: <GitBranch className="w-3.5 h-3.5" />, color: "rose" },
+    { id: "primrec", label: tr("tabPrFn"), icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "teal" },
   ];
 
   const colorMap: Record<string, string> = {
@@ -729,11 +733,29 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-emerald-400" />
           <span className="font-mono-display text-emerald-400 font-semibold tracking-wider text-xs">
-            ALU CALCULATOR
+            {tr("appTitle")}
           </span>
-          <span className="text-slate-600 text-[10px] font-mono-display">v3.2 · EML+FLOAT+PR+FLAGS</span>
+          <span className="text-slate-600 text-[10px] font-mono-display">v3.2 · {tr("appSubtitle")}</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Language switcher */}
+          <div className="flex items-center gap-1 mr-2 border-r border-slate-700 pr-2">
+            <Globe className="w-3 h-3 text-slate-500" />
+            {(["en", "pl", "zh"] as Lang[]).map(l => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                title={langNames[l]}
+                className={`px-1.5 py-0.5 text-[10px] font-mono-display border transition-all ${
+                  lang === l
+                    ? "border-emerald-500 text-emerald-400 bg-emerald-500/10"
+                    : "border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {langLabels[l]}
+              </button>
+            ))}
+          </div>
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -769,19 +791,19 @@ export default function Home() {
               </div>
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-700/50">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-600 tracking-widest">BIN</span>
+                  <span className="text-[10px] text-slate-600 tracking-widest">{tr("calcBin")}</span>
                   <span className="font-mono-display text-[11px] text-slate-400 tracking-wider">
                     {display === "Error" ? "────────────────" : toBinary(safeInt)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-600 tracking-widest">HEX</span>
+                  <span className="text-[10px] text-slate-600 tracking-widest">{tr("calcHex")}</span>
                   <span className="font-mono-display text-[11px] text-cyan-400 tracking-wider">
                     {display === "Error" ? "────" : `0x${displayHex}`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-600 tracking-widest">BASE-e</span>
+                  <span className="text-[10px] text-slate-600 tracking-widest">{tr("calcBaseE")}</span>
                   <span className="font-mono-display text-[11px] text-amber-400 tracking-wider">
                     {display === "Error" ? "—" : toBaseE(parseFloat(display) || 0).repr}
                   </span>
@@ -851,8 +873,8 @@ export default function Home() {
             <div className="border-b border-border bg-slate-900/80 p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="text-[10px] text-slate-600 tracking-widest">ARITHMETIC LOGIC UNIT</div>
-                  <div className="text-[10px] px-1.5 py-0.5 border border-cyan-700/50 text-cyan-500 bg-cyan-900/20 tracking-widest">16-BIT BITWISE</div>
+                  <div className="text-[10px] text-slate-600 tracking-widest">{tr("aluTitle")}</div>
+                  <div className="text-[10px] px-1.5 py-0.5 border border-cyan-700/50 text-cyan-500 bg-cyan-900/20 tracking-widest">{tr("aluBadge")}</div>
                 </div>
                 {/* Input base selector */}
                 <div className="flex gap-1">
@@ -894,14 +916,14 @@ export default function Home() {
               {/* CPU Status Flags */}
               {cpuFlags && (
                 <div className="mt-3 border border-slate-700/50 bg-slate-800/30 p-2">
-                  <div className="text-[9px] text-slate-600 tracking-widest mb-1.5">CPU STATUS FLAGS (16-bit)</div>
+                  <div className="text-[9px] text-slate-600 tracking-widest mb-1.5">{tr("cpuFlagsTitle")}</div>
                   <div className="grid grid-cols-4 gap-1.5 mb-2">
                     {([
-                      { flag: "Z", label: "Zero",     val: cpuFlags.Z, color: "emerald" },
-                      { flag: "N", label: "Negative", val: cpuFlags.N, color: "red" },
-                      { flag: "C", label: "Carry",    val: cpuFlags.C, color: "amber" },
-                      { flag: "V", label: "Overflow", val: cpuFlags.V, color: "violet" },
-                    ] as const).map(({ flag, label, val, color }) => (
+                      { flag: "Z", label: tr("flagZero"),     val: cpuFlags.Z, color: "emerald" },
+                      { flag: "N", label: tr("flagNegative"), val: cpuFlags.N, color: "red" },
+                      { flag: "C", label: tr("flagCarry"),    val: cpuFlags.C, color: "amber" },
+                      { flag: "V", label: tr("flagOverflow"), val: cpuFlags.V, color: "violet" },
+                    ] as { flag: string; label: string; val: boolean; color: string }[]).map(({ flag, label, val, color }) => (
                       <div key={flag} className={`flex flex-col items-center p-1.5 border ${
                         val
                           ? color === "emerald" ? "border-emerald-500/60 bg-emerald-900/20" :
@@ -940,27 +962,27 @@ export default function Home() {
             </div>
             {aluResult !== null && (
               <div className="px-4 py-3 border-b border-border bg-slate-900/40">
-                <div className="text-[10px] text-slate-600 tracking-widest mb-2">RESULT BITS</div>
+                <div className="text-[10px] text-slate-600 tracking-widest mb-2">{tr("aluResultBits")}</div>
                 <BitGrid value={aluResultInt ?? 0} />
               </div>
             )}
             {/* Logic ops */}
             <div className="p-3 border-b border-border">
               <div className="flex items-center gap-2 mb-2">
-                <div className="text-[10px] text-slate-600 tracking-widest">BITWISE LOGIC OPERATIONS</div>
-                <div className="text-[10px] text-slate-700 tracking-widest">— operates on individual bits</div>
+                <div className="text-[10px] text-slate-600 tracking-widest">{tr("aluLogicOps")}</div>
+                <div className="text-[10px] text-slate-700 tracking-widest">{tr("aluLogicDesc")}</div>
               </div>
               {/* Bitwise op descriptions */}
               <div className="grid grid-cols-4 gap-1.5 mb-2">
                 {([
-                  { op: "AND",  desc: "bit AND" },
-                  { op: "OR",   desc: "bit OR" },
-                  { op: "XOR",  desc: "bit XOR" },
-                  { op: "NOT",  desc: "bit NOT" },
-                  { op: "NAND", desc: "~(A&B)" },
-                  { op: "NOR",  desc: "~(A|B)" },
-                  { op: "SHL",  desc: "shift ←" },
-                  { op: "SHR",  desc: "shift →" },
+                  { op: "AND",  desc: tr("opAnd") },
+                  { op: "OR",   desc: tr("opOr") },
+                  { op: "XOR",  desc: tr("opXor") },
+                  { op: "NOT",  desc: tr("opNot") },
+                  { op: "NAND", desc: tr("opNand") },
+                  { op: "NOR",  desc: tr("opNor") },
+                  { op: "SHL",  desc: tr("opShl") },
+                  { op: "SHR",  desc: tr("opShr") },
                 ] as { op: AluOp; desc: string }[]).map(({ op, desc }) => (
                   <button
                     key={op}
@@ -994,7 +1016,7 @@ export default function Home() {
             {/* Adaptive Keypad */}
             <div className="p-3 space-y-1.5">
               <div className="flex items-center justify-between mb-1">
-                <div className="text-[10px] text-slate-600 tracking-widest">INPUT → {aluInputFocus === "A" ? "OPERAND A" : "OPERAND B"} [{aluInputBase}]</div>
+                <div className="text-[10px] text-slate-600 tracking-widest">{tr("aluInputLabel", { target: aluInputFocus === "A" ? tr("aluOperandA") : tr("aluOperandB"), base: aluInputBase })}</div>
                 <div className="flex gap-1">
                   <button onClick={() => setAluInputFocus("A")} className={`h-7 px-2 text-[10px] font-medium border transition-all ${aluInputFocus === "A" ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-600 text-slate-500 hover:border-slate-400"}`}>→ A</button>
                   <button onClick={() => setAluInputFocus("B")} className={`h-7 px-2 text-[10px] font-medium border transition-all ${aluInputFocus === "B" ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-600 text-slate-500 hover:border-slate-400"}`}>→ B</button>
@@ -1051,11 +1073,11 @@ export default function Home() {
           <div className="flex flex-col p-4 gap-4">
             {/* Header info */}
             <div className="border border-violet-700/40 bg-violet-900/10 p-3">
-              <div className="text-[10px] text-violet-400 tracking-widest mb-1">EML OPERATOR — EXP-MINUS-LOG</div>
+              <div className="text-[10px] text-violet-400 tracking-widest mb-1">{tr("emlTitle")}</div>
               <div className="font-mono-display text-violet-300 text-sm">eml(x, y) = exp(x) − ln(y)</div>
               <div className="text-[10px] text-slate-500 mt-1">
-                The continuous-math analog of NAND. A single binary operator that generates all elementary functions.
-                <br />Source: Odrzywołek, A. (2026). arXiv:2603.21852
+                {tr("emlDesc")}
+                <br />{tr("emlSource")}
               </div>
             </div>
 
@@ -1158,7 +1180,7 @@ export default function Home() {
           <div className="flex flex-col p-4 gap-4">
             {/* Input */}
             <div className="border border-border bg-slate-900/40 p-3">
-              <div className="text-[10px] text-slate-500 tracking-widest mb-2">IEEE-754 FLOAT ANALYZER</div>
+              <div className="text-[10px] text-slate-500 tracking-widest mb-2">{tr("floatTitle")}</div>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -1273,18 +1295,18 @@ export default function Home() {
               </div>
               {/* Comparison table */}
               <div className="mt-2 border border-slate-700 bg-slate-800/20 p-2">
-                <div className="text-[10px] text-slate-500 tracking-widest mb-1">COMPARISON: FLOAT BASES</div>
+                <div className="text-[10px] text-slate-500 tracking-widest mb-1">{tr("floatComparison")}</div>
                 <div className="space-y-1 font-mono-display text-[11px]">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Base-2 (binary):</span>
+                    <span className="text-slate-500">{tr("floatBase2")}</span>
                     <span className="text-slate-300">{floatVal !== 0 && isFinite(floatVal) ? `${(floatVal / Math.pow(2, Math.floor(Math.log2(Math.abs(floatVal))))).toFixed(6)} × 2^${Math.floor(Math.log2(Math.abs(floatVal)))}` : String(floatVal)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Base-10 (sci):</span>
+                    <span className="text-slate-500">{tr("floatBase10")}</span>
                     <span className="text-slate-300">{floatVal.toExponential(6)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-amber-500">Base-e (natural):</span>
+                    <span className="text-amber-500">{tr("floatBaseE")}</span>
                     <span className="text-amber-300">{baseERepr.repr}</span>
                   </div>
                 </div>
@@ -1293,25 +1315,25 @@ export default function Home() {
 
             {/* EML connection — live derivation steps */}
             <div className="border border-violet-700/30 bg-violet-900/10 p-3">
-              <div className="text-[10px] text-violet-400 tracking-widest mb-1">EML CONNECTION — BASE-e COMPUTED VIA EML OPERATOR</div>
+              <div className="text-[10px] text-violet-400 tracking-widest mb-1">{tr("floatEmlConnection")}</div>
               <div className="text-[10px] text-slate-500 mb-2">
-                Since <span className="text-violet-300 font-mono-display">eml(x, 1) = exp(x) − ln(1) = e^x</span>, the scale factor e^n and mantissa m are both computed by a single EML call each:
+                {tr("floatEmlDesc")}
               </div>
               <div className="grid grid-cols-2 gap-2 mb-3 text-[10px]">
                 <div className="border border-violet-700/20 bg-slate-800/40 p-2">
-                  <div className="text-violet-400 tracking-widest mb-1">SCALE FACTOR</div>
+                  <div className="text-violet-400 tracking-widest mb-1">{tr("floatScaleFactor")}</div>
                   <div className="font-mono-display text-violet-300">e^n = eml(n, 1)</div>
                   <div className="text-slate-600 mt-0.5">exp(n) − ln(1) = e^n</div>
                 </div>
                 <div className="border border-violet-700/20 bg-slate-800/40 p-2">
-                  <div className="text-violet-400 tracking-widest mb-1">MANTISSA</div>
+                  <div className="text-violet-400 tracking-widest mb-1">{tr("floatMantissaLabel")}</div>
                   <div className="font-mono-display text-violet-300">m = eml(ln|x|−n, 1)</div>
                   <div className="text-slate-600 mt-0.5">exp(ln|x|−n) = |x|/e^n</div>
                 </div>
               </div>
               {baseERepr.emlSteps.length > 0 && (
                 <div className="border border-violet-700/20 bg-slate-800/30 p-2">
-                  <div className="text-[9px] text-violet-500 tracking-widest mb-1">LIVE EML DERIVATION FOR x = {floatInput}</div>
+                  <div className="text-[9px] text-violet-500 tracking-widest mb-1">{tr("floatLiveDerivation", { x: floatInput })}</div>
                   {baseERepr.emlSteps.map((step, i) => (
                     <div key={i} className="font-mono-display text-[10px] text-slate-400">{step}</div>
                   ))}
@@ -1326,11 +1348,9 @@ export default function Home() {
         {mode === "spiral" && (
           <div className="flex flex-col p-4 gap-4">
             <div className="border border-rose-700/40 bg-rose-900/10 p-3">
-              <div className="text-[10px] text-rose-400 tracking-widest mb-1">EML BOOTSTRAPPING TREE — PHYLOGENETIC SPIRAL</div>
+              <div className="text-[10px] text-rose-400 tracking-widest mb-1">{tr("treeTitle")}</div>
               <div className="text-[11px] text-slate-400">
-                Recreates Fig. 1 from arXiv:2603.21852. EML at the centre bootstraps all 36 elementary functions
-                in rings — analogous to a LUCA (Last Universal Common Ancestor) phylogenetic tree.
-                Click any node to see its EML derivation formula.
+                {tr("treeDesc")}
               </div>
             </div>
             <EmlSpiral />
@@ -1341,10 +1361,9 @@ export default function Home() {
         {mode === "primrec" && (
           <div className="flex flex-col p-4 gap-4">
             <div className="border border-teal-700/40 bg-teal-900/10 p-3">
-              <div className="text-[10px] text-teal-400 tracking-widest mb-1">PRIMITIVE RECURSIVE FUNCTIONS</div>
+              <div className="text-[10px] text-teal-400 tracking-widest mb-1">{tr("prTitle")}</div>
               <div className="text-[11px] text-slate-400">
-                The class of functions built from Zero, Successor, and Projection using Composition and Primitive Recursion.
-                Every PR function terminates. The Ackermann function is the classic example that escapes this class.
+                {tr("prDesc")}
               </div>
             </div>
             <PrimRecursive />
@@ -1356,9 +1375,9 @@ export default function Home() {
       {history.length > 0 && (
         <div className="border-t border-border bg-slate-900/60 px-4 py-2">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] text-slate-600 tracking-widest">HISTORY</span>
+            <span className="text-[10px] text-slate-600 tracking-widest">{tr("history")}</span>
             <button onClick={() => setHistory([])} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
-              <Delete className="w-3 h-3 inline" /> CLEAR
+              <Delete className="w-3 h-3 inline" /> {tr("clearHistory")}
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1">
@@ -1371,7 +1390,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-border px-4 py-1.5 flex items-center justify-between flex-wrap gap-1">
-        <span className="font-mono-display text-[10px] text-slate-700">KEYBOARD: 0-9 + - * / Enter Backspace Esc</span>
+        <span className="font-mono-display text-[10px] text-slate-700">{tr("calcKeyboard")}</span>
         <span className="font-mono-display text-[10px] text-slate-700">EML: eml(x,y) = exp(x) − ln(y) · arXiv:2603.21852</span>
       </footer>
     </div>

@@ -778,6 +778,19 @@ export default function Home() {
               {tab.label}
             </button>
           ))}
+          {/* GitHub badge */}
+          <a
+            href="https://github.com/randommysticalperson/alu-calculator"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2 py-1 border border-slate-700 text-slate-500 hover:border-slate-400 hover:text-slate-300 transition-all text-[10px] font-mono-display"
+            title="View source on GitHub"
+          >
+            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            </svg>
+            { { en: "Source", pl: "Kod", zh: "原始碼" }[lang] ?? "Source" }
+          </a>
         </div>
       </header>
 
@@ -1384,6 +1397,22 @@ export default function Home() {
             <span className="text-[10px] text-slate-600 tracking-widest">{tr("history")}</span>
             <button onClick={() => setHistory([])} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
               <Delete className="w-3 h-3 inline" /> {tr("clearHistory")}
+            </button>
+            <button
+              onClick={() => {
+                const csv = history.map((e, i) => `${i + 1},"${e}"`).join("\n");
+                const blob = new Blob([`#,Expression\n${csv}`], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url; a.download = "alu-calc-history.csv"; a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="text-[10px] text-slate-600 hover:text-emerald-400 transition-colors flex items-center gap-1"
+            >
+              <svg className="w-3 h-3 inline" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8 2v8m0 0L5 7m3 3 3-3M2 12h12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              { { en: "Export CSV", pl: "Eksportuj CSV", zh: "匯出 CSV" }[lang] ?? "Export CSV" }
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1">

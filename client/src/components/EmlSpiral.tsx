@@ -18,10 +18,10 @@ interface Node {
   id: string;
   label: string;
   category: "eml" | "seed" | "algebraic" | "trig" | "hyperbolic";
-  ring: number;       // 0 = center, 1 = inner, 2 = mid, 3 = outer
-  angle: number;      // degrees, 0 = top
-  description: string;
-  derivedFrom: string[];  // ids of parent nodes
+  ring: number;
+  angle: number;
+  description: { en: string; pl: string; zh: string };
+  derivedFrom: string[];
   emlFormula?: string;
 }
 
@@ -30,115 +30,217 @@ interface Node {
 const NODES: Node[] = [
   // Ring 0 — EML itself
   { id: "eml", label: "eml", category: "eml", ring: 0, angle: 0,
-    description: "eml(x,y) = exp(x) − ln(y)\nThe single universal operator. Analogous to NAND for Boolean logic.",
-    derivedFrom: [], emlFormula: "exp(x) − ln(y)" },
+    description: {
+      en: "eml(x,y) = exp(x) − ln(y)\nThe single universal operator. Analogous to NAND for Boolean logic.",
+      pl: "eml(x,y) = exp(x) − ln(y)\nJedyny uniwersalny operator. Analogiczny do NAND w logice Boole'a.",
+      zh: "eml(x,y) = exp(x) − ln(y)\n唯一的通用運算子，類比布林逿輯中的 NAND。"
+    }, derivedFrom: [], emlFormula: "exp(x) − ln(y)" },
 
   // Ring 1 — First bootstrapped: seeds from eml(1,1) etc.
   { id: "e", label: "e", category: "seed", ring: 1, angle: 30,
-    description: "Euler's number e ≈ 2.71828\neml(1,1) = exp(1) − ln(1) = e − 0 = e",
-    derivedFrom: ["eml"], emlFormula: "eml(1,1)" },
+    description: {
+      en: "Euler's number e ≈ 2.71828\neml(1,1) = exp(1) − ln(1) = e − 0 = e",
+      pl: "Liczba Eulera e ≈ 2.71828\neml(1,1) = exp(1) − ln(1) = e − 0 = e",
+      zh: "Euler 數 e ≈ 2.71828\neml(1,1) = exp(1) − ln(1) = e − 0 = e"
+    }, derivedFrom: ["eml"], emlFormula: "eml(1,1)" },
   { id: "one", label: "1", category: "seed", ring: 1, angle: 90,
-    description: "The terminal constant 1.\nRequired to neutralise ln(1)=0 in EML.",
-    derivedFrom: [], emlFormula: "terminal" },
+    description: {
+      en: "The terminal constant 1.\nRequired to neutralise ln(1)=0 in EML.",
+      pl: "Stała terminalna 1.\nNiezbędna do neutralizacji ln(1)=0 w EML.",
+      zh: "終端常數 1。\n用於消去 EML 中的 ln(1)=0。"
+    }, derivedFrom: [], emlFormula: "terminal" },
   { id: "exp", label: "exp", category: "algebraic", ring: 1, angle: 150,
-    description: "Exponential: exp(x) = e^x\neml(x, 1) = exp(x) − ln(1) = exp(x)",
-    derivedFrom: ["eml","one"], emlFormula: "eml(x, 1)" },
+    description: {
+      en: "Exponential: exp(x) = e^x\neml(x, 1) = exp(x) − ln(1) = exp(x)",
+      pl: "Eksponencja: exp(x) = e^x\neml(x, 1) = exp(x) − ln(1) = exp(x)",
+      zh: "指數函數：exp(x) = e^x\neml(x, 1) = exp(x) − ln(1) = exp(x)"
+    }, derivedFrom: ["eml","one"], emlFormula: "eml(x, 1)" },
   { id: "ln", label: "ln", category: "algebraic", ring: 1, angle: 210,
-    description: "Natural logarithm: ln(x)\neml(1, eml(eml(1,x), 1))\nDepth-3 EML expression",
-    derivedFrom: ["eml","one"], emlFormula: "eml(1, eml(eml(1,x), 1))" },
+    description: {
+      en: "Natural logarithm: ln(x)\neml(1, eml(eml(1,x), 1))\nDepth-3 EML expression",
+      pl: "Logarytm naturalny: ln(x)\neml(1, eml(eml(1,x), 1))\nWyrażenie EML głębokości 3",
+      zh: "自然對數：ln(x)\neml(1, eml(eml(1,x), 1))\nEML 深度 3 表達式"
+    }, derivedFrom: ["eml","one"], emlFormula: "eml(1, eml(eml(1,x), 1))" },
   { id: "neg1", label: "−1", category: "seed", ring: 1, angle: 270,
-    description: "Constant −1\nDerived via EML chain from 1",
-    derivedFrom: ["eml","one"], emlFormula: "eml chain" },
+    description: {
+      en: "Constant −1\nDerived via EML chain from 1",
+      pl: "Stała −1\nWyprowadzona przez łańcuch EML z 1",
+      zh: "常數 −1\n由 1 透過 EML 鏈推導"
+    }, derivedFrom: ["eml","one"], emlFormula: "eml chain" },
   { id: "two", label: "2", category: "seed", ring: 1, angle: 330,
-    description: "Constant 2\nDerived via EML chain",
-    derivedFrom: ["eml","one"], emlFormula: "eml chain" },
+    description: {
+      en: "Constant 2\nDerived via EML chain",
+      pl: "Stała 2\nWyprowadzona przez łańcuch EML",
+      zh: "常數 2\n透過 EML 鏈推導"
+    }, derivedFrom: ["eml","one"], emlFormula: "eml chain" },
 
   // Ring 2 — Algebraic operations
   { id: "minus", label: "−", category: "algebraic", ring: 2, angle: 20,
-    description: "Subtraction: x − y\neml(ln x, e^y) = exp(ln x) − ln(e^y) = x − y\n(requires x > 0)",
-    derivedFrom: ["ln","exp"], emlFormula: "eml(ln x, e^y)" },
+    description: {
+      en: "Subtraction: x − y\neml(ln x, e^y) = exp(ln x) − ln(e^y) = x − y\n(requires x > 0)",
+      pl: "Odejmowanie: x − y\neml(ln x, e^y) = x − y\n(wymaga x > 0)",
+      zh: "減法：x − y\neml(ln x, e^y) = x − y\n（需要 x > 0）"
+    }, derivedFrom: ["ln","exp"], emlFormula: "eml(ln x, e^y)" },
   { id: "plus", label: "+", category: "algebraic", ring: 2, angle: 60,
-    description: "Addition: x + y\nln(e^x · e^y) = ln(eml(x,1) · eml(y,1))\nDepth ~5 EML expression",
-    derivedFrom: ["ln","exp"], emlFormula: "ln(eml(x,1)·eml(y,1))" },
+    description: {
+      en: "Addition: x + y\nln(e^x · e^y) = ln(eml(x,1) · eml(y,1))\nDepth ~5 EML expression",
+      pl: "Dodawanie: x + y\nln(e^x · e^y) = ln(eml(x,1) · eml(y,1))\nGłębokość EML ~5",
+      zh: "加法：x + y\nln(e^x · e^y) = ln(eml(x,1) · eml(y,1))\nEML 深度 ~5"
+    }, derivedFrom: ["ln","exp"], emlFormula: "ln(eml(x,1)·eml(y,1))" },
   { id: "times", label: "×", category: "algebraic", ring: 2, angle: 100,
-    description: "Multiplication: x × y\neml(ln x + ln y, 1) = exp(ln x + ln y)\n(requires x,y > 0)",
-    derivedFrom: ["ln","exp","plus"], emlFormula: "eml(ln x + ln y, 1)" },
+    description: {
+      en: "Multiplication: x × y\neml(ln x + ln y, 1) = exp(ln x + ln y)\n(requires x,y > 0)",
+      pl: "Mnożenie: x × y\neml(ln x + ln y, 1)\n(wymaga x,y > 0)",
+      zh: "乘法：x × y\neml(ln x + ln y, 1)\n（需要 x,y > 0）"
+    }, derivedFrom: ["ln","exp","plus"], emlFormula: "eml(ln x + ln y, 1)" },
   { id: "inv", label: "1/x", category: "algebraic", ring: 2, angle: 140,
-    description: "Reciprocal: 1/x\nexp(−ln x) = eml(−ln x, 1)\nDepth ~7 EML expression",
-    derivedFrom: ["ln","exp","minus"], emlFormula: "eml(−ln x, 1)" },
+    description: {
+      en: "Reciprocal: 1/x\nexp(−ln x) = eml(−ln x, 1)\nDepth ~7 EML expression",
+      pl: "Odwrotność: 1/x\nexp(−ln x) = eml(−ln x, 1)\nGłębokość EML ~7",
+      zh: "倒數：1/x\nexp(−ln x) = eml(−ln x, 1)\nEML 深度 ~7"
+    }, derivedFrom: ["ln","exp","minus"], emlFormula: "eml(−ln x, 1)" },
   { id: "negx", label: "−x", category: "algebraic", ring: 2, angle: 180,
-    description: "Negation: −x\nBuilt from EML chain via subtraction\nDepth ~15 (direct search)",
-    derivedFrom: ["minus","one"], emlFormula: "eml chain, depth ~15" },
+    description: {
+      en: "Negation: −x\nBuilt from EML chain via subtraction\nDepth ~15 (direct search)",
+      pl: "Negacja: −x\nZbudowana przez łańcuch EML przez odejmowanie\nGłębokość ~15",
+      zh: "取負：−x\n由減法的 EML 鏈構建\n深度 ~15"
+    }, derivedFrom: ["minus","one"], emlFormula: "eml chain, depth ~15" },
   { id: "sqr", label: "x²", category: "algebraic", ring: 2, angle: 220,
-    description: "Square: x²\nexp(2·ln x) = eml(2·ln x, 1)\n(requires x > 0)",
-    derivedFrom: ["ln","exp","two"], emlFormula: "eml(2·ln x, 1)" },
+    description: {
+      en: "Square: x²\nexp(2·ln x) = eml(2·ln x, 1)\n(requires x > 0)",
+      pl: "Kwadrat: x²\nexp(2·ln x) = eml(2·ln x, 1)\n(wymaga x > 0)",
+      zh: "平方：x²\nexp(2·ln x) = eml(2·ln x, 1)\n（需要 x > 0）"
+    }, derivedFrom: ["ln","exp","two"], emlFormula: "eml(2·ln x, 1)" },
   { id: "div", label: "÷", category: "algebraic", ring: 2, angle: 260,
-    description: "Division: x ÷ y\nexp(ln x − ln y) = eml(ln x − ln y, 1)\n(requires x,y > 0)",
-    derivedFrom: ["ln","exp","minus"], emlFormula: "eml(ln x − ln y, 1)" },
+    description: {
+      en: "Division: x ÷ y\nexp(ln x − ln y) = eml(ln x − ln y, 1)\n(requires x,y > 0)",
+      pl: "Dzielenie: x ÷ y\nexp(ln x − ln y) = eml(ln x − ln y, 1)\n(wymaga x,y > 0)",
+      zh: "除法：x ÷ y\nexp(ln x − ln y) = eml(ln x − ln y, 1)\n（需要 x,y > 0）"
+    }, derivedFrom: ["ln","exp","minus"], emlFormula: "eml(ln x − ln y, 1)" },
   { id: "xhalf", label: "x/2", category: "algebraic", ring: 2, angle: 300,
-    description: "Half: x/2\nDepth ~27 EML expression",
-    derivedFrom: ["div","two"], emlFormula: "eml chain, depth ~27" },
+    description: {
+      en: "Half: x/2\nDepth ~27 EML expression",
+      pl: "Połowa: x/2\nGłębokość EML ~27",
+      zh: "半値：x/2\nEML 深度 ~27"
+    }, derivedFrom: ["div","two"], emlFormula: "eml chain, depth ~27" },
   { id: "pow", label: "x^y", category: "algebraic", ring: 2, angle: 340,
-    description: "Power: x^y = e^(y·ln x)\neml(y·ln x, 1)\n(requires x > 0)",
-    derivedFrom: ["ln","exp","times"], emlFormula: "eml(y·ln x, 1)" },
+    description: {
+      en: "Power: x^y = e^(y·ln x)\neml(y·ln x, 1)\n(requires x > 0)",
+      pl: "Potęga: x^y = e^(y·ln x)\neml(y·ln x, 1)\n(wymaga x > 0)",
+      zh: "冪次：x^y = e^(y·ln x)\neml(y·ln x, 1)\n（需要 x > 0）"
+    }, derivedFrom: ["ln","exp","times"], emlFormula: "eml(y·ln x, 1)" },
 
   // Ring 2 continued — more algebraic
   { id: "sqrt", label: "√x", category: "algebraic", ring: 2, angle: 380,
-    description: "Square root: √x = x^(1/2)\neml(ln(x)/2, 1)",
-    derivedFrom: ["ln","exp","xhalf"], emlFormula: "eml(ln(x)/2, 1)" },
+    description: {
+      en: "Square root: √x = x^(1/2)\neml(ln(x)/2, 1)",
+      pl: "Pierwiastek kwadratowy: √x = x^(1/2)\neml(ln(x)/2, 1)",
+      zh: "平方根：√x = x^(1/2)\neml(ln(x)/2, 1)"
+    }, derivedFrom: ["ln","exp","xhalf"], emlFormula: "eml(ln(x)/2, 1)" },
   { id: "logxy", label: "logₓy", category: "algebraic", ring: 2, angle: 420,
-    description: "Logarithm base x: logₓ(y) = ln(y)/ln(x)\nDepth ~29 EML expression",
-    derivedFrom: ["ln","div"], emlFormula: "ln(y)/ln(x) via EML" },
+    description: {
+      en: "Logarithm base x: logₓ(y) = ln(y)/ln(x)\nDepth ~29 EML expression",
+      pl: "Logarytm o podstawie x: logₓ(y) = ln(y)/ln(x)\nGłębokość EML ~29",
+      zh: "以 x 為底的對數：logₓ(y) = ln(y)/ln(x)\nEML 深度 ~29"
+    }, derivedFrom: ["ln","div"], emlFormula: "ln(y)/ln(x) via EML" },
   { id: "avg", label: "(x+y)/2", category: "algebraic", ring: 2, angle: 460,
-    description: "Arithmetic mean: (x+y)/2\nDepth ~287 EML compiler / >27 direct",
-    derivedFrom: ["plus","xhalf"], emlFormula: "eml chain, depth ~287" },
+    description: {
+      en: "Arithmetic mean: (x+y)/2\nDepth ~287 EML compiler / >27 direct",
+      pl: "Średnio arytmetyczna: (x+y)/2\nGłębokość ~287 (kompilator EML) / >27 bezpośrednio",
+      zh: "算術平均：(x+y)/2\nEML 編譯器深度 ~287 / 直接 >27"
+    }, derivedFrom: ["plus","xhalf"], emlFormula: "eml chain, depth ~287" },
   { id: "hypot", label: "√x²+y²", category: "algebraic", ring: 2, angle: 500,
-    description: "Hypotenuse: √(x²+y²)\nDepth >27 EML expression",
-    derivedFrom: ["sqr","plus","sqrt"], emlFormula: "eml chain, depth >27" },
+    description: {
+      en: "Hypotenuse: √(x²+y²)\nDepth >27 EML expression",
+      pl: "Przeciwprostokątna: √(x²+y²)\nGłębokość EML >27",
+      zh: "斤边：√(x²+y²)\nEML 深度 >27"
+    }, derivedFrom: ["sqr","plus","sqrt"], emlFormula: "eml chain, depth >27" },
   { id: "pi", label: "π", category: "seed", ring: 2, angle: 540,
-    description: "Pi ≈ 3.14159\nDerived via EML chain (depth ~193 compiler)",
-    derivedFrom: ["ln","neg1"], emlFormula: "eml chain, depth ~193" },
+    description: {
+      en: "Pi ≈ 3.14159\nDerived via EML chain (depth ~193 compiler)",
+      pl: "Pi ≈ 3.14159\nWyprowadzone przez łańcuch EML (głębokość ~193 kompilator)",
+      zh: "圓周率 π ≈ 3.14159\n透過 EML 鏈推導（編譯器深度 ~193）"
+    }, derivedFrom: ["ln","neg1"], emlFormula: "eml chain, depth ~193" },
   { id: "sigma", label: "σ", category: "hyperbolic", ring: 2, angle: 570,
-    description: "Logistic sigmoid: σ(x) = 1/(1+e^−x)\nDerived from exp and inv",
-    derivedFrom: ["exp","inv","plus"], emlFormula: "1/(1+eml(−x,1))" },
+    description: {
+      en: "Logistic sigmoid: σ(x) = 1/(1+e^−x)\nDerived from exp and inv",
+      pl: "Sigmoid logistyczny: σ(x) = 1/(1+e^−x)\nWyprowadzony z exp i odwrotności",
+      zh: "邏輯成長曲線：σ(x) = 1/(1+e^−x)\n由 exp 與倒數推導"
+    }, derivedFrom: ["exp","inv","plus"], emlFormula: "1/(1+eml(−x,1))" },
 
   // Ring 3 — Trig and hyperbolic
   { id: "sin", label: "sin", category: "trig", ring: 3, angle: 30,
-    description: "Sine function: sin(x)\nDerived via complex EML chain using π and i\nRequires complex domain",
-    derivedFrom: ["exp","pi","neg1"], emlFormula: "Im(eml(ix, 1))" },
+    description: {
+      en: "Sine function: sin(x)\nDerived via complex EML chain using π and i\nRequires complex domain",
+      pl: "Sinus: sin(x)\nWyprowadzony przez złożony łańcuch EML z π i i\nWymaga dziedziny zespolonej",
+      zh: "正弦函數：sin(x)\n透過使用 π 和 i 的複數 EML 鏈推導\n需要複數域"
+    }, derivedFrom: ["exp","pi","neg1"], emlFormula: "Im(eml(ix, 1))" },
   { id: "cos", label: "cos", category: "trig", ring: 3, angle: 70,
-    description: "Cosine function: cos(x)\nRe(e^(ix)) via EML in complex domain",
-    derivedFrom: ["exp","pi","neg1"], emlFormula: "Re(eml(ix, 1))" },
+    description: {
+      en: "Cosine function: cos(x)\nRe(e^(ix)) via EML in complex domain",
+      pl: "Cosinus: cos(x)\nRe(e^(ix)) przez EML w dziedzinie zespolonej",
+      zh: "餘弦函數：cos(x)\n複數域中 EML 的 Re(e^(ix))"
+    }, derivedFrom: ["exp","pi","neg1"], emlFormula: "Re(eml(ix, 1))" },
   { id: "tan", label: "tan", category: "trig", ring: 3, angle: 110,
-    description: "Tangent: tan(x) = sin(x)/cos(x)\nDerived from sin and cos via EML",
-    derivedFrom: ["sin","cos","div"], emlFormula: "sin/cos via EML" },
+    description: {
+      en: "Tangent: tan(x) = sin(x)/cos(x)\nDerived from sin and cos via EML",
+      pl: "Tangens: tan(x) = sin(x)/cos(x)\nWyprowadzony z sin i cos przez EML",
+      zh: "正切：tan(x) = sin(x)/cos(x)\n由 sin 與 cos 透過 EML 推導"
+    }, derivedFrom: ["sin","cos","div"], emlFormula: "sin/cos via EML" },
   { id: "arcsin", label: "arcsin", category: "trig", ring: 3, angle: 150,
-    description: "Arcsine: arcsin(x)\nDerived via complex logarithm EML chain",
-    derivedFrom: ["ln","sqr","minus"], emlFormula: "−i·ln(ix + √(1−x²))" },
+    description: {
+      en: "Arcsine: arcsin(x)\nDerived via complex logarithm EML chain",
+      pl: "Arcus sinus: arcsin(x)\nWyprowadzony przez złożony logarytm EML",
+      zh: "反正弦：arcsin(x)\n透過複數對數 EML 鏈推導"
+    }, derivedFrom: ["ln","sqr","minus"], emlFormula: "−i·ln(ix + √(1−x²))" },
   { id: "arccos", label: "arccos", category: "trig", ring: 3, angle: 190,
-    description: "Arccosine: arccos(x)\nπ/2 − arcsin(x) via EML",
-    derivedFrom: ["arcsin","pi"], emlFormula: "π/2 − arcsin(x)" },
+    description: {
+      en: "Arccosine: arccos(x)\nπ/2 − arcsin(x) via EML",
+      pl: "Arcus cosinus: arccos(x)\nπ/2 − arcsin(x) przez EML",
+      zh: "反餘弦：arccos(x)\nπ/2 − arcsin(x) 透過 EML"
+    }, derivedFrom: ["arcsin","pi"], emlFormula: "π/2 − arcsin(x)" },
   { id: "arctan", label: "arctan", category: "trig", ring: 3, angle: 230,
-    description: "Arctangent: arctan(x)\nDerived via complex logarithm",
-    derivedFrom: ["ln","neg1"], emlFormula: "−i/2·ln((1+ix)/(1−ix))" },
+    description: {
+      en: "Arctangent: arctan(x)\nDerived via complex logarithm",
+      pl: "Arcus tangens: arctan(x)\nWyprowadzony przez logarytm zespolony",
+      zh: "反正切：arctan(x)\n透過複數對數推導"
+    }, derivedFrom: ["ln","neg1"], emlFormula: "−i/2·ln((1+ix)/(1−ix))" },
   { id: "sinh", label: "sinh", category: "hyperbolic", ring: 3, angle: 270,
-    description: "Hyperbolic sine: sinh(x) = (e^x − e^−x)/2\nDirectly from exp via EML",
-    derivedFrom: ["exp","minus","xhalf"], emlFormula: "(eml(x,1)−eml(−x,1))/2" },
+    description: {
+      en: "Hyperbolic sine: sinh(x) = (e^x − e^−x)/2\nDirectly from exp via EML",
+      pl: "Sinus hiperboliczny: sinh(x) = (e^x − e^−x)/2\nBezpośrednio z exp przez EML",
+      zh: "雙曲正弦：sinh(x) = (e^x − e^−x)/2\n直接由 EML 的 exp 推導"
+    }, derivedFrom: ["exp","minus","xhalf"], emlFormula: "(eml(x,1)−eml(−x,1))/2" },
   { id: "cosh", label: "cosh", category: "hyperbolic", ring: 3, angle: 310,
-    description: "Hyperbolic cosine: cosh(x) = (e^x + e^−x)/2\nFrom exp via EML",
-    derivedFrom: ["exp","plus","xhalf"], emlFormula: "(eml(x,1)+eml(−x,1))/2" },
+    description: {
+      en: "Hyperbolic cosine: cosh(x) = (e^x + e^−x)/2\nFrom exp via EML",
+      pl: "Cosinus hiperboliczny: cosh(x) = (e^x + e^−x)/2\nZ exp przez EML",
+      zh: "雙曲餘弦：cosh(x) = (e^x + e^−x)/2\n由 EML 的 exp 推導"
+    }, derivedFrom: ["exp","plus","xhalf"], emlFormula: "(eml(x,1)+eml(−x,1))/2" },
   { id: "tanh", label: "tanh", category: "hyperbolic", ring: 3, angle: 350,
-    description: "Hyperbolic tangent: tanh(x) = sinh/cosh\nFrom sinh and cosh",
-    derivedFrom: ["sinh","cosh","div"], emlFormula: "sinh(x)/cosh(x)" },
+    description: {
+      en: "Hyperbolic tangent: tanh(x) = sinh/cosh\nFrom sinh and cosh",
+      pl: "Tangens hiperboliczny: tanh(x) = sinh/cosh\nZ sinh i cosh",
+      zh: "雙曲正切：tanh(x) = sinh/cosh\n由 sinh 與 cosh 推導"
+    }, derivedFrom: ["sinh","cosh","div"], emlFormula: "sinh(x)/cosh(x)" },
   { id: "arsinh", label: "arsinh", category: "hyperbolic", ring: 3, angle: 390,
-    description: "Inverse hyperbolic sine: arsinh(x) = ln(x + √(x²+1))\nFrom ln via EML",
-    derivedFrom: ["ln","sqr","plus","sqrt"], emlFormula: "ln(x + √(x²+1))" },
+    description: {
+      en: "Inverse hyperbolic sine: arsinh(x) = ln(x + √(x²+1))\nFrom ln via EML",
+      pl: "Odwrotny sinus hiperboliczny: arsinh(x) = ln(x + √(x²+1))\nZ ln przez EML",
+      zh: "反雙曲正弦：arsinh(x) = ln(x + √(x²+1))\n由 EML 的 ln 推導"
+    }, derivedFrom: ["ln","sqr","plus","sqrt"], emlFormula: "ln(x + √(x²+1))" },
   { id: "arcosh", label: "arcosh", category: "hyperbolic", ring: 3, angle: 430,
-    description: "Inverse hyperbolic cosine: arcosh(x) = ln(x + √(x²−1))\nFrom ln via EML",
-    derivedFrom: ["ln","sqr","minus","sqrt"], emlFormula: "ln(x + √(x²−1))" },
+    description: {
+      en: "Inverse hyperbolic cosine: arcosh(x) = ln(x + √(x²−1))\nFrom ln via EML",
+      pl: "Odwrotny cosinus hiperboliczny: arcosh(x) = ln(x + √(x²−1))\nZ ln przez EML",
+      zh: "反雙曲餘弦：arcosh(x) = ln(x + √(x²−1))\n由 EML 的 ln 推導"
+    }, derivedFrom: ["ln","sqr","minus","sqrt"], emlFormula: "ln(x + √(x²−1))" },
   { id: "artanh", label: "artanh", category: "hyperbolic", ring: 3, angle: 470,
-    description: "Inverse hyperbolic tangent: artanh(x) = ln((1+x)/(1−x))/2\nFrom ln",
-    derivedFrom: ["ln","plus","minus","xhalf"], emlFormula: "ln((1+x)/(1−x))/2" },
+    description: {
+      en: "Inverse hyperbolic tangent: artanh(x) = ln((1+x)/(1−x))/2\nFrom ln",
+      pl: "Odwrotny tangens hiperboliczny: artanh(x) = ln((1+x)/(1−x))/2\nZ ln",
+      zh: "反雙曲正切：artanh(x) = ln((1+x)/(1−x))/2\n由 ln 推導"
+    }, derivedFrom: ["ln","plus","minus","xhalf"], emlFormula: "ln((1+x)/(1−x))/2" },
 ];
 
 // ─── Color scheme ─────────────────────────────────────────────────────────────
@@ -480,7 +582,7 @@ export default function EmlSpiral({ lang = "en" }: EmlSpiralProps) {
           {selected.emlFormula && (
             <div className="font-mono-display text-emerald-400 mt-1 text-[11px]">{selected.emlFormula}</div>
           )}
-          <div className="text-slate-400 mt-1 whitespace-pre-line">{selected.description}</div>
+          <div className="text-slate-400 mt-1 whitespace-pre-line">{selected.description[lang]}</div>
           {selected.derivedFrom.length > 0 && (
             <div className="mt-1 text-[10px] text-slate-600">
               {{ en: "Derived from", pl: "Wyprowadzone z", zh: "推導自" }[lang] ?? "Derived from"}: {selected.derivedFrom.map(id => NODES.find(n => n.id === id)?.label || id).join(", ")}

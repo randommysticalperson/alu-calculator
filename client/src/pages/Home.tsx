@@ -11,7 +11,8 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare, Globe } from "lucide-react";
+import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare, Globe, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import EmlSpiral from "@/components/EmlSpiral";
 import PrimRecursive from "@/components/PrimRecursive";
 import { type Lang, t, langLabels, langNames, translations } from "@/lib/i18n";
@@ -451,6 +452,7 @@ function Float32BitField({ value }: { value: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
+  const { theme, toggleTheme } = useTheme();
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("alu-calc-lang");
     return (saved === "en" || saved === "pl" || saved === "zh") ? saved as Lang : "en";
@@ -778,6 +780,27 @@ export default function Home() {
               {tab.label}
             </button>
           ))}
+          {/* Theme slider */}
+          <div className="flex items-center gap-1.5 ml-1 mr-1 border-l border-slate-700 pl-2">
+            <Sun className={`w-3 h-3 transition-colors ${theme === 'light' ? 'text-amber-400' : 'text-slate-600'}`} />
+            <button
+              role="switch"
+              aria-checked={theme === 'dark'}
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+              className="relative inline-flex h-4 w-8 items-center rounded-full border border-slate-600 transition-colors duration-300 focus:outline-none"
+              style={{ background: theme === 'dark' ? 'oklch(0.22 0.01 285)' : 'oklch(0.92 0.01 80)' }}
+            >
+              <span
+                className="inline-block h-3 w-3 rounded-full shadow transition-transform duration-300"
+                style={{
+                  transform: theme === 'dark' ? 'translateX(17px)' : 'translateX(1px)',
+                  background: theme === 'dark' ? '#10b981' : '#f59e0b',
+                }}
+              />
+            </button>
+            <Moon className={`w-3 h-3 transition-colors ${theme === 'dark' ? 'text-emerald-400' : 'text-slate-600'}`} />
+          </div>
           {/* GitHub badge */}
           <a
             href="https://github.com/randommysticalperson/alu-calculator"
@@ -1189,7 +1212,31 @@ export default function Home() {
               <div className="text-slate-400 tracking-widest mb-1">EML GRAMMAR: S → 1 | eml(S, S)</div>
               <div>Every elementary function is a binary tree of identical EML nodes.</div>
               <div>Analogous to NAND gate for Boolean logic — a single universal primitive.</div>
-              <div className="text-slate-600">Odrzywołek, A. (2026). arXiv:2603.21852 [cs.SC]</div>
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-700/50 mt-1">
+                <span className="text-slate-600">Odrzywołek, A. (2026). arXiv:2603.21852 [cs.SC]</span>
+                <a
+                  href="https://arxiv.org/abs/2603.21852"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-0.5 border border-violet-700/50 text-violet-400 hover:border-violet-500 hover:text-violet-300 transition-all font-mono-display"
+                >
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M7 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1V9M10 2h4m0 0v4m0-4L7 9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  { { en: "Read Paper", pl: "Czytaj artykuł", zh: "閱讀論文" }[lang] ?? "Read Paper" }
+                </a>
+                <a
+                  href="https://monkfrom.earth/blogs/eml-operator-math-nand-gate"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2 py-0.5 border border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300 transition-all font-mono-display"
+                >
+                  <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M7 3H3a1 1 0 00-1 1v9a1 1 0 001 1h9a1 1 0 001-1V9M10 2h4m0 0v4m0-4L7 9" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  { { en: "Blog Post", pl: "Wpis na blogu", zh: "部落格文章" }[lang] ?? "Blog Post" }
+                </a>
+              </div>
             </div>
           </div>
         )}

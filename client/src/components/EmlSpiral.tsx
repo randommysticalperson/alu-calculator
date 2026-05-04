@@ -12,6 +12,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { type Lang, t } from "@/lib/i18n";
 
 interface Node {
   id: string;
@@ -199,7 +200,10 @@ const BOOTSTRAP_ORDER = [
   "sinh", "cosh", "tanh", "arsinh", "arcosh", "artanh",
 ];
 
-export default function EmlSpiral() {
+interface EmlSpiralProps { lang?: Lang; }
+
+export default function EmlSpiral({ lang = "en" }: EmlSpiralProps) {
+  const tr = useCallback((key: Parameters<typeof t>[1]) => t(lang, key), [lang]);
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 500, height: 500 });
@@ -267,13 +271,13 @@ export default function EmlSpiral() {
       {/* Controls row */}
       <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div className="flex flex-wrap gap-1.5">
-          {[
-            { cat: null, label: "ALL" },
-            { cat: "seed", label: "CONSTANTS" },
-            { cat: "algebraic", label: "ALGEBRAIC" },
-            { cat: "trig", label: "TRIG" },
-            { cat: "hyperbolic", label: "HYPERBOLIC" },
-          ].map(({ cat, label }) => {
+          {([
+            { cat: null, label: { en: "ALL", pl: "WSZYSTKIE", zh: "全部" }[lang] ?? "ALL" },
+            { cat: "seed", label: { en: "CONSTANTS", pl: "STAŁE", zh: "常數" }[lang] ?? "CONSTANTS" },
+            { cat: "algebraic", label: { en: "ALGEBRAIC", pl: "ALGEBRAICZNE", zh: "代數" }[lang] ?? "ALGEBRAIC" },
+            { cat: "trig", label: { en: "TRIG", pl: "TRYG", zh: "三角" }[lang] ?? "TRIG" },
+            { cat: "hyperbolic", label: { en: "HYPERBOLIC", pl: "HIPERBOL", zh: "雙曲" }[lang] ?? "HYPERBOLIC" },
+          ] as { cat: string | null; label: string }[]).map(({ cat, label }) => {
             const col = cat ? CATEGORY_COLORS[cat] : null;
             return (
               <button
@@ -296,7 +300,7 @@ export default function EmlSpiral() {
               : "border-rose-600/60 text-rose-400 hover:bg-rose-900/20 active:scale-95"
           }`}
         >
-          {animating ? `▶ BOOTSTRAPPING... (${revealedCount}/${BOOTSTRAP_ORDER.length})` : "▶ REPLAY BOOTSTRAP"}
+          {animating ? `${{ en: "● REPLAYING", pl: "● ODTWARZANIE", zh: "● 重播中" }[lang] ?? "● REPLAYING"}… (${revealedCount}/${BOOTSTRAP_ORDER.length})` : tr("treeReplay")}
         </button>
       </div>
       {/* Legend / filter (hidden — merged above) */}
@@ -461,7 +465,15 @@ export default function EmlSpiral() {
               >
                 {selected.label}
               </span>
-              <span className="text-slate-500 text-[10px] ml-2 tracking-widest uppercase">{selected.category}</span>
+              <span className="text-slate-500 text-[10px] ml-2 tracking-widest uppercase">
+              {({
+                eml: { en: "EML", pl: "EML", zh: "EML" },
+                seed: { en: "CONSTANT", pl: "STAŁA", zh: "常數" },
+                algebraic: { en: "ALGEBRAIC", pl: "ALGEBRAICZNE", zh: "代數" },
+                trig: { en: "TRIGONOMETRIC", pl: "TRYGONOMETRYCZNE", zh: "三角函數" },
+                hyperbolic: { en: "HYPERBOLIC", pl: "HIPERBOLICZNE", zh: "雙曲函數" },
+              } as Record<string, Record<string, string>>)[selected.category]?.[lang] ?? selected.category.toUpperCase()}
+            </span>
             </div>
             <button onClick={() => setSelected(null)} className="text-slate-600 hover:text-slate-300 text-lg leading-none">×</button>
           </div>
@@ -471,13 +483,13 @@ export default function EmlSpiral() {
           <div className="text-slate-400 mt-1 whitespace-pre-line">{selected.description}</div>
           {selected.derivedFrom.length > 0 && (
             <div className="mt-1 text-[10px] text-slate-600">
-              Derived from: {selected.derivedFrom.map(id => NODES.find(n => n.id === id)?.label || id).join(", ")}
+              {{ en: "Derived from", pl: "Wyprowadzone z", zh: "推導自" }[lang] ?? "Derived from"}: {selected.derivedFrom.map(id => NODES.find(n => n.id === id)?.label || id).join(", ")}
             </div>
           )}
         </div>
       )}
       {!selected && (
-        <div className="mt-1 text-[10px] text-slate-600 text-center">Click any node to see its EML derivation</div>
+        <div className="mt-1 text-[10px] text-slate-600 text-center">{tr("treeClickNode")}</div>
       )}
     </div>
   );

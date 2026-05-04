@@ -451,8 +451,14 @@ function Float32BitField({ value }: { value: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [lang, setLang] = useState<Lang>("en");
+  const [lang, setLang] = useState<Lang>(() => {
+    const saved = localStorage.getItem("alu-calc-lang");
+    return (saved === "en" || saved === "pl" || saved === "zh") ? saved as Lang : "en";
+  });
   const tr = useCallback((key: Parameters<typeof t>[1], vars?: Record<string, string>) => t(lang, key, vars), [lang]);
+
+  // Persist language preference
+  useEffect(() => { localStorage.setItem("alu-calc-lang", lang); }, [lang]);
 
   const [display, setDisplay] = useState("0");
   const [prevValue, setPrevValue] = useState<string | null>(null);
@@ -1353,7 +1359,7 @@ export default function Home() {
                 {tr("treeDesc")}
               </div>
             </div>
-            <EmlSpiral />
+            <EmlSpiral lang={lang} />
           </div>
         )}
 
@@ -1366,7 +1372,7 @@ export default function Home() {
                 {tr("prDesc")}
               </div>
             </div>
-            <PrimRecursive />
+            <PrimRecursive lang={lang} />
           </div>
         )}
       </main>

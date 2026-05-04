@@ -23,6 +23,7 @@
  */
 
 import { useState, useCallback, useMemo } from "react";
+import { type Lang } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -265,7 +266,10 @@ const CAT_COLORS: Record<string, { border: string; bg: string; text: string; bad
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PrimRecursive() {
+interface PrimRecursiveProps { lang?: Lang; }
+
+export default function PrimRecursive({ lang = "en" }: PrimRecursiveProps) {
+  const L = lang;
   const [selected, setSelected] = useState<PRFunction>(PR_FUNCTIONS[3]); // default: add
   const [args, setArgs] = useState<string[]>(["5", "3"]);
   const [result, setResult] = useState<{ result: number; steps: string[] } | null>(null);
@@ -291,22 +295,25 @@ export default function PrimRecursive() {
     <div className="space-y-3">
       {/* Header */}
       <div className="border border-emerald-700/30 bg-emerald-900/10 p-3">
-        <div className="text-[10px] text-emerald-400 tracking-widest mb-1">PRIMITIVE RECURSIVE FUNCTIONS</div>
+        <div className="text-[10px] text-emerald-400 tracking-widest mb-1">
+          {{ en: "PRIMITIVE RECURSIVE FUNCTIONS", pl: "FUNKCJE PIERWOTNIE REKURENCYJNE", zh: "原始遞迴函數" }[L]}
+        </div>
         <div className="text-[11px] text-slate-400">
-          Built from three base functions (Zero, Successor, Projection) using Composition and Primitive Recursion.
-          Every primitive recursive function is total and computable — but not all computable functions are primitive recursive (cf. Ackermann).
+          {{ en: "Built from three base functions (Zero, Successor, Projection) using Composition and Primitive Recursion. Every primitive recursive function is total and computable — but not all computable functions are primitive recursive (cf. Ackermann).",
+             pl: "Zbudowane z trzech funkcji bazowych (Zero, Następnik, Rzutowanie) przez Złożenie i Rekurencję Pierwotną. Każda funkcja PR jest totalna i obliczalna — ale nie każda obliczalna funkcja jest pierwotnie rekurencyjna (por. Ackermann).",
+             zh: "由零函數、後繼函數、投影函數三個基本函數，透過合成與原始遞迴構建。每個原始遞迴函數必然終止且可計算，但並非所有可計算函數都是原始遞迴的（參見 Ackermann）。" }[L]}
         </div>
       </div>
 
       {/* Category filter */}
       <div className="flex flex-wrap gap-1">
-        {[
-          { cat: null, label: "ALL" },
-          { cat: "base", label: "BASE" },
-          { cat: "arithmetic", label: "ARITHMETIC" },
-          { cat: "extended", label: "EXTENDED" },
-          { cat: "non-pr", label: "NON-PR" },
-        ].map(({ cat, label }) => {
+        {([
+          { cat: null, label: { en: "ALL", pl: "WSZYSTKIE", zh: "全部" }[L] ?? "ALL" },
+          { cat: "base", label: { en: "BASE", pl: "BAZOWE", zh: "基本" }[L] ?? "BASE" },
+          { cat: "arithmetic", label: { en: "ARITHMETIC", pl: "ARYTMETYCZNE", zh: "算術" }[L] ?? "ARITHMETIC" },
+          { cat: "extended", label: { en: "EXTENDED", pl: "ROZSZERZONE", zh: "擴展" }[L] ?? "EXTENDED" },
+          { cat: "non-pr", label: { en: "NON-PR", pl: "POZA-PR", zh: "非原遞迴" }[L] ?? "NON-PR" },
+        ] as { cat: string | null; label: string }[]).map(({ cat, label }) => {
           const col = cat ? CAT_COLORS[cat] : null;
           return (
             <button
@@ -343,14 +350,21 @@ export default function PrimRecursive() {
           <div>
             <span className={`font-mono-display font-bold text-sm ${CAT_COLORS[selected.category].text}`}>{selected.name}</span>
             <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded-sm ${CAT_COLORS[selected.category].badge}`}>
-              {selected.category === "non-pr" ? "NOT PRIMITIVE RECURSIVE" : selected.category.toUpperCase()}
+              {selected.category === "non-pr"
+                ? { en: "NOT PRIMITIVE RECURSIVE", pl: "NIE PIERWOTNIE REKURENCYJNA", zh: "非原始遞迴" }[L] ?? "NOT PRIMITIVE RECURSIVE"
+                : ({
+                    base: { en: "BASE", pl: "BAZOWA", zh: "基本" },
+                    arithmetic: { en: "ARITHMETIC", pl: "ARYTMETYCZNA", zh: "算術" },
+                    extended: { en: "EXTENDED", pl: "ROZSZERZONA", zh: "擴展" },
+                  } as Record<string, Record<string, string>>)[selected.category]?.[L] ?? selected.category.toUpperCase()
+              }
             </span>
           </div>
         </div>
 
         {/* Formal definition */}
         <div className="border border-slate-700 bg-slate-900/60 p-2 mb-2">
-          <div className="text-[10px] text-slate-500 tracking-widest mb-1">FORMAL DEFINITION</div>
+          <div className="text-[10px] text-slate-500 tracking-widest mb-1">{{ en: "FORMAL DEFINITION", pl: "DEFINICJA FORMALNA", zh: "形式定義" }[L]}</div>
           {selected.definition.map((line, i) => (
             <div key={i} className="font-mono-display text-[11px] text-slate-300">{line}</div>
           ))}
@@ -381,9 +395,9 @@ export default function PrimRecursive() {
           <div className="flex items-end">
             <button
               onClick={compute}
-              className={`h-9 px-4 font-mono-display text-xs font-semibold border transition-all active:scale-95 ${CAT_COLORS[selected.category].border} ${CAT_COLORS[selected.category].text} hover:opacity-80`}
+               className={`h-9 px-4 font-mono-display text-xs font-semibold border transition-all active:scale-95 ${CAT_COLORS[selected.category].border} ${CAT_COLORS[selected.category].text} hover:opacity-80`}
             >
-              COMPUTE
+              {{ en: "COMPUTE", pl: "OBLICZ", zh: "計算" }[L]}
             </button>
           </div>
         </div>
@@ -392,13 +406,13 @@ export default function PrimRecursive() {
         {result && (
           <div className="space-y-1">
             <div className="border border-emerald-700/40 bg-emerald-900/10 p-2">
-              <span className="text-[10px] text-slate-500">RESULT = </span>
+              <span className="text-[10px] text-slate-500">{{ en: "RESULT", pl: "WYNIK", zh: "結果" }[L]} = </span>
               <span className="font-mono-display text-emerald-400 text-lg">
                 {isFinite(result.result) ? result.result.toLocaleString() : "∞ (too large)"}
               </span>
             </div>
             <div className="border border-slate-700 bg-slate-800/40 p-2">
-              <div className="text-[10px] text-slate-500 tracking-widest mb-1">EVALUATION TRACE</div>
+              <div className="text-[10px] text-slate-500 tracking-widest mb-1">{{ en: "EVALUATION TRACE", pl: "PRZEBIEG OBLICZEŃ", zh: "計算追蹤" }[L]}</div>
               <div className="space-y-0.5 max-h-48 overflow-y-auto">
                 {result.steps.map((step, i) => (
                   <div key={i} className="font-mono-display text-[11px] text-slate-400">{step}</div>
@@ -411,7 +425,7 @@ export default function PrimRecursive() {
 
       {/* PR Hierarchy */}
       <div className="border border-slate-700 bg-slate-800/20 p-3">
-        <div className="text-[10px] text-slate-500 tracking-widest mb-2">PRIMITIVE RECURSIVE HIERARCHY</div>
+        <div className="text-[10px] text-slate-500 tracking-widest mb-2">{{ en: "PRIMITIVE RECURSIVE HIERARCHY", pl: "HIERARCHIA REKURENCJI PIERWOTNEJ", zh: "原始遞迴階層" }[L]}</div>
         <div className="flex items-center gap-1 flex-wrap font-mono-display text-[11px]">
           {[
             { label: "Z, S, P", color: "text-emerald-400" },
@@ -433,22 +447,24 @@ export default function PrimRecursive() {
           ))}
         </div>
         <div className="text-[10px] text-slate-600 mt-1">
-          PR = Primitive Recursive · μ-recursive = General Recursive (Turing-complete)
+          {{ en: "PR = Primitive Recursive · μ-recursive = General Recursive (Turing-complete)",
+             pl: "PR = Pierwotnie Rekurencyjna · μ-rekurencyjna = Ogólnie Rekurencyjna (Turing-zupełna)",
+             zh: "PR = 原始遞迴 · μ-遞迴 = 一般遞迴（圖靈完備）" }[L]}
         </div>
       </div>
 
       {/* Ackermann Growth Chart */}
-      <AckermannChart />
+      <AckermannChart lang={L} />
 
       {/* PR Function Composer */}
-      <PRComposer />
+      <PRComposer lang={L} />
     </div>
   );
 }
 
 // ─── Ackermann Growth Chart ───────────────────────────────────────────────────
 
-function AckermannChart() {
+function AckermannChart({ lang = "en" }: { lang?: Lang }) {
   // For n=1..6, compare fact(n), exp(2,n), A(2,n), A(3,n)
   const ns = [0, 1, 2, 3, 4, 5, 6];
 
@@ -487,9 +503,13 @@ function AckermannChart() {
 
   return (
     <div className="border border-red-700/30 bg-red-900/5 p-3">
-      <div className="text-[10px] text-red-400 tracking-widest mb-1">ACKERMANN GROWTH RATE (log₁₀ scale)</div>
+      <div className="text-[10px] text-red-400 tracking-widest mb-1">
+        {{ en: "ACKERMANN GROWTH RATE (log₁₀ scale)", pl: "WZRÓST ACKERMANNA (skala log₁₀)", zh: "Ackermann 增長率（log₁₀ 尺度）" }[lang]}
+      </div>
       <div className="text-[10px] text-slate-500 mb-3">
-        Comparing n!, 2ⁿ, A(2,n), A(3,n) — Ackermann grows faster than any primitive recursive function.
+        {{ en: "Comparing n!, 2ⁿ, A(2,n), A(3,n) — Ackermann grows faster than any primitive recursive function.",
+           pl: "Porównanie n!, 2ⁿ, A(2,n), A(3,n) — Ackermann rośnie szybciej niż jakakolwiek funkcja pierwotnie rekurencyjna.",
+           zh: "比較 n!、2ⁿ、A(2,n)、A(3,n) — Ackermann 函數比任何原始遞迴函數增長更快。" }[lang]}
       </div>
       <div className="overflow-x-auto">
         <svg width={Math.max(400, ns.length * 60 + 40)} height={barH + 60} className="font-mono-display">
@@ -541,7 +561,9 @@ function AckermannChart() {
         </svg>
       </div>
       <div className="text-[10px] text-slate-600 mt-1">
-        A(3,4) = 2^65536 − 3 · A(4,0) = 65533 · Values shown as log₁₀ bar heights
+        {{ en: "A(3,4) = 2^65536 − 3 · A(4,0) = 65533 · Values shown as log₁₀ bar heights",
+           pl: "A(3,4) = 2^65536 − 3 · A(4,0) = 65533 · Wartości jako wysokości słupków log₁₀",
+           zh: "A(3,4) = 2^65536 − 3 · A(4,0) = 65533 · 數値以 log₁₀ 柱狀圖高度顯示" }[lang]}
       </div>
     </div>
   );
@@ -551,7 +573,7 @@ function AckermannChart() {
 
 const COMPOSABLE = PR_FUNCTIONS.filter(f => f.category !== "non-pr");
 
-function PRComposer() {
+function PRComposer({ lang = "en" }: { lang?: Lang }) {
   const [outerFn, setOuterFn] = useState<PRFunction>(COMPOSABLE[3]); // mul
   const [innerFn, setInnerFn] = useState<PRFunction>(COMPOSABLE[3]); // add
   const [args, setArgs] = useState<string[]>(["2", "3", "4"]);
@@ -596,16 +618,19 @@ function PRComposer() {
 
   return (
     <div className="border border-teal-700/30 bg-teal-900/5 p-3 space-y-3">
-      <div className="text-[10px] text-teal-400 tracking-widest">PR FUNCTION COMPOSER</div>
+      <div className="text-[10px] text-teal-400 tracking-widest">
+        {{ en: "PR FUNCTION COMPOSER", pl: "KOMPOZYTOR FUNKCJI PR", zh: "原始遞迴函數合成器" }[lang]}
+      </div>
       <div className="text-[11px] text-slate-400">
-        Compose two primitive recursive functions: h = outer ∘ inner.
-        The output of the inner function becomes the first input of the outer function.
+        {{ en: "Compose two primitive recursive functions: h = outer ∘ inner. The output of the inner function becomes the first input of the outer function.",
+           pl: "Złóż dwie funkcje pierwotnie rekurencyjne: h = zewnętrzna ∘ wewnętrzna. Wynik funkcji wewnętrznej staje się pierwszym wejściem zewnętrznej.",
+           zh: "將兩個原始遞迴函數合成：h = 外層 ∘ 內層。內層函數的輸出成為外層函數的第一個輸入。" }[lang]}
       </div>
 
       {/* Function selectors */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-[10px] text-slate-500 tracking-widest mb-1">INNER FUNCTION f(x, y)</div>
+          <div className="text-[10px] text-slate-500 tracking-widest mb-1">{{ en: "INNER FUNCTION f(x, y)", pl: "FUNKCJA WEWNĘTRZNA f(x, y)", zh: "內層函數 f(x, y)" }[lang]}</div>
           <div className="grid grid-cols-2 gap-1">
             {COMPOSABLE.map(fn => (
               <button key={fn.id} onClick={() => { setInnerFn(fn); setResult(null); }}
@@ -616,7 +641,7 @@ function PRComposer() {
           </div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-500 tracking-widest mb-1">OUTER FUNCTION g(·, z)</div>
+          <div className="text-[10px] text-slate-500 tracking-widest mb-1">{{ en: "OUTER FUNCTION g(·, z)", pl: "FUNKCJA ZEWNĘTRZNA g(·, z)", zh: "外層函數 g(·, z)" }[lang]}</div>
           <div className="grid grid-cols-2 gap-1">
             {COMPOSABLE.map(fn => (
               <button key={fn.id} onClick={() => { setOuterFn(fn); setResult(null); }}
@@ -630,7 +655,7 @@ function PRComposer() {
 
       {/* Composed definition */}
       <div className="border border-teal-700/30 bg-slate-800/40 p-2">
-        <div className="text-[10px] text-slate-500 tracking-widest mb-1">COMPOSED FUNCTION</div>
+          <div className="text-[10px] text-slate-500 tracking-widest mb-1">{{ en: "COMPOSED FUNCTION", pl: "FUNKCJA ZŁOŻONA", zh: "合成函數" }[lang]}</div>
         <div className="font-mono-display text-teal-300 text-[11px]">{composed.notation}</div>
         <div className="text-[10px] text-slate-500 mt-1">{composed.description}</div>
       </div>
@@ -647,7 +672,7 @@ function PRComposer() {
         ))}
         <button onClick={compute}
           className="h-9 px-4 font-mono-display text-xs font-semibold border border-teal-500 text-teal-300 hover:bg-teal-500/10 transition-all active:scale-95">
-          COMPOSE &amp; COMPUTE
+          {{ en: "COMPOSE & COMPUTE", pl: "ZŁÓŻ I OBLICZ", zh: "合成並計算" }[lang]}
         </button>
       </div>
 
@@ -661,7 +686,7 @@ function PRComposer() {
             </span>
           </div>
           <div className="border border-slate-700 bg-slate-800/40 p-2 max-h-48 overflow-y-auto">
-            <div className="text-[10px] text-slate-500 tracking-widest mb-1">COMPOSITION TRACE</div>
+            <div className="text-[10px] text-slate-500 tracking-widest mb-1">{{ en: "COMPOSITION TRACE", pl: "PRZEBIEG ZŁOŻENIA", zh: "合成追蹤" }[lang]}</div>
             {result.steps.map((s, i) => (
               <div key={i} className="font-mono-display text-[11px] text-slate-400">{s}</div>
             ))}

@@ -90,24 +90,85 @@ function getFloat64Parts(value: number): {
   };
 }
 
-// ─── Base-e Float Utilities ───────────────────────────────────────────────────
+// ─── Base-e Float Utilities (computed via EML operator) ─────────────────────
+//
+// EML CONNECTION (Odrzywołek 2026, arXiv:2603.21852):
+//   eml(x, 1) = exp(x) − ln(1) = exp(x)   → scale factor e^n = eml(n, 1)
+//   eml(ln(x) − n, 1) = exp(ln(x) − n)    → mantissa m = eml(ln|x| − n, 1)
+//   So the base-e decomposition x = m × e^n is computed entirely via EML.
 
-// Represent x as m × e^n where n = floor(ln|x|), m = x / e^n
-// This is the "natural float" representation using base e
-function toBaseE(value: number): { mantissa: number; exponent: number; repr: string } {
+function toBaseE(value: number): {
+  mantissa: number;
+  exponent: number;
+  repr: string;
+  emlSteps: string[];
+} {
   if (!isFinite(value) || value === 0) {
-    return { mantissa: value, exponent: 0, repr: value === 0 ? "0 × e⁰" : String(value) };
+    return { mantissa: value, exponent: 0, repr: value === 0 ? "0 × e⁰" : String(value), emlSteps: [] };
   }
   const absVal = Math.abs(value);
-  const n = Math.floor(Math.log(absVal)); // floor(ln|x|)
-  const m = value / Math.exp(n);          // m = x / e^n
-  const sign = value < 0 ? "−" : "";
+  const sign = value < 0 ? -1 : 1;
+
+  // Step 1: n = floor(ln|x|)  — uses ln which is itself an EML expression
+  const lnAbs = Math.log(absVal);           // ln|x|
+  const n = Math.floor(lnAbs);              // integer exponent
+
+  // Step 2: scale factor e^n = eml(n, 1)
+  const scaleEml = eml(n, 1);               // exp(n) − ln(1) = e^n
+
+  // Step 3: mantissa m = x / e^n = eml(ln|x| − n, 1)
+  const mantissaArg = lnAbs - n;            // ln|x| − n  (in [0, 1))
+  const mantissaEml = eml(mantissaArg, 1);  // exp(ln|x| − n) = |x| / e^n
+  const m = sign * mantissaEml;
+
   const mStr = Math.abs(m).toFixed(6);
   const expStr = n >= 0 ? `e^${n}` : `e^(${n})`;
+  const signStr = value < 0 ? "−" : "";
+
+  const emlSteps: string[] = [
+    `1. ln|x| = ln(${absVal.toPrecision(6)}) = ${lnAbs.toFixed(6)}`,
+    `2. n = ⌊ln|x|⌋ = ${n}`,
+    `3. scale = eml(n, 1) = exp(${n}) − ln(1) = e^${n} = ${scaleEml.toFixed(6)}`,
+    `4. mantissa arg = ln|x| − n = ${mantissaArg.toFixed(6)}`,
+    `5. m = eml(ln|x|−n, 1) = exp(${mantissaArg.toFixed(4)}) = ${mantissaEml.toFixed(6)}`,
+    `6. x = ${signStr}m × e^n = ${signStr}${mStr} × ${expStr}`,
+    `   Verify: ${signStr}${mStr} × ${scaleEml.toFixed(6)} ≈ ${(m * scaleEml).toFixed(6)}`,
+  ];
+
   return {
     mantissa: m,
     exponent: n,
-    repr: `${sign}${mStr} × ${expStr}`,
+    repr: `${signStr}${mStr} × ${expStr}`,
+    emlSteps,
+  };
+}
+
+// ─── CPU Status Flags ─────────────────────────────────────────────────────────
+
+function computeFlags(op: string, a: number, b: number, result: number): {
+  Z: boolean; N: boolean; C: boolean; V: boolean;
+  descriptions: string[];
+} {
+  const r16 = result & 0xffff;   // 16-bit truncated result
+  const Z = r16 === 0;
+  const N = (r16 & 0x8000) !== 0;  // bit 15 set → negative in 2's complement
+  // Carry: result overflowed 16 bits (unsigned)
+  const C = (result >>> 0) > 0xffff;
+  // Overflow: signed overflow — result sign differs from both inputs' sign (for AND/OR/XOR)
+  const aSign = (a & 0x8000) !== 0;
+  const bSign = (b & 0x8000) !== 0;
+  const rSign = N;
+  const V = (op === "AND" || op === "OR" || op === "XOR")
+    ? (!aSign && !bSign && rSign) || (aSign && bSign && !rSign)
+    : false;
+  return {
+    Z, N, C, V,
+    descriptions: [
+      `Z (Zero)=${Z ? 1 : 0}: result${Z ? " == 0" : " ≠ 0"}`,
+      `N (Negative)=${N ? 1 : 0}: bit15=${N ? 1 : 0}${N ? " → 2's-comp negative" : ""}`,
+      `C (Carry)=${C ? 1 : 0}: unsigned overflow${C ? " detected" : " none"}`,
+      `V (Overflow)=${V ? 1 : 0}: signed overflow${V ? " detected" : " none"}`,
+    ],
   };
 }
 
@@ -399,6 +460,8 @@ export default function Home() {
   const [aluResult, setAluResult] = useState<string | null>(null);
   const [aluOp, setAluOp] = useState<AluOp | null>(null);
   const [aluInputFocus, setAluInputFocus] = useState<"A" | "B">("A");
+  const [aluInputBase, setAluInputBase] = useState<"DEC" | "HEX" | "BIN">("DEC");
+  const [cpuFlags, setCpuFlags] = useState<{ Z: boolean; N: boolean; C: boolean; V: boolean; descriptions: string[] } | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [expression, setExpression] = useState("");
 
@@ -530,9 +593,23 @@ export default function Home() {
 
   // ── ALU Logic ──────────────────────────────────────────────────────────────
 
+  // Parse ALU operand string according to current base
+  const parseAluVal = useCallback((val: string): number => {
+    if (aluInputBase === "HEX") return parseInt(val.replace(/^0x/i, "") || "0", 16) || 0;
+    if (aluInputBase === "BIN") return parseInt(val.replace(/^0b/i, "") || "0", 2) || 0;
+    return toSafeInt(val);
+  }, [aluInputBase]);
+
+  // Format a decimal int for display in the current base
+  const formatAluVal = useCallback((n: number): string => {
+    if (aluInputBase === "HEX") return "0x" + toHex(n);
+    if (aluInputBase === "BIN") return toBinary(n);
+    return String(n);
+  }, [aluInputBase]);
+
   const performAlu = useCallback((op: AluOp) => {
-    const a = toSafeInt(aluA);
-    const b = toSafeInt(aluB);
+    const a = parseAluVal(aluA);
+    const b = parseAluVal(aluB);
     let result: number;
     switch (op) {
       case "AND":  result = a & b; break;
@@ -547,19 +624,25 @@ export default function Home() {
     }
     setAluOp(op);
     setAluResult(String(result));
+    setCpuFlags(computeFlags(op, a, b, result));
     const entry = op === "NOT" ? `NOT(${a}) = ${result}` : `${a} ${op} ${b} = ${result}`;
     setHistory(h => [entry, ...h.slice(0, 9)]);
-  }, [aluA, aluB]);
+  }, [aluA, aluB, parseAluVal]);
 
   const aluInputDigit = useCallback((digit: string) => {
     const setter = aluInputFocus === "A" ? setAluA : setAluB;
     setter(prev => {
-      if (prev === "0") return digit;
-      if (prev.length >= 10) return prev;
+      // Validate digit for current base
+      if (aluInputBase === "BIN" && !/^[01]$/.test(digit)) return prev;
+      if (aluInputBase === "HEX" && !/^[0-9A-Fa-f]$/.test(digit)) return prev;
+      const maxLen = aluInputBase === "BIN" ? 16 : aluInputBase === "HEX" ? 4 : 10;
+      if (prev === "0" && aluInputBase === "DEC") return digit;
+      if (prev.length >= maxLen) return prev;
       return prev + digit;
     });
     setAluResult(null);
-  }, [aluInputFocus]);
+    setCpuFlags(null);
+  }, [aluInputFocus, aluInputBase]);
 
   const aluBackspace = useCallback(() => {
     const setter = aluInputFocus === "A" ? setAluA : setAluB;
@@ -568,7 +651,7 @@ export default function Home() {
   }, [aluInputFocus]);
 
   const aluClear = useCallback(() => {
-    setAluA("0"); setAluB("0"); setAluResult(null); setAluOp(null);
+    setAluA("0"); setAluB("0"); setAluResult(null); setAluOp(null); setCpuFlags(null);
   }, []);
 
   // ── EML Logic ──────────────────────────────────────────────────────────────
@@ -648,7 +731,7 @@ export default function Home() {
           <span className="font-mono-display text-emerald-400 font-semibold tracking-wider text-xs">
             ALU CALCULATOR
           </span>
-          <span className="text-slate-600 text-[10px] font-mono-display">v3.0 · EML+FLOAT+PR</span>
+          <span className="text-slate-600 text-[10px] font-mono-display">v3.2 · EML+FLOAT+PR+FLAGS</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           {tabs.map(tab => (
@@ -766,31 +849,94 @@ export default function Home() {
           <div className="flex flex-col">
             {/* ALU Display */}
             <div className="border-b border-border bg-slate-900/80 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="text-[10px] text-slate-600 tracking-widest">ARITHMETIC LOGIC UNIT</div>
-                <div className="text-[10px] px-1.5 py-0.5 border border-cyan-700/50 text-cyan-500 bg-cyan-900/20 tracking-widest">16-BIT BITWISE</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] text-slate-600 tracking-widest">ARITHMETIC LOGIC UNIT</div>
+                  <div className="text-[10px] px-1.5 py-0.5 border border-cyan-700/50 text-cyan-500 bg-cyan-900/20 tracking-widest">16-BIT BITWISE</div>
+                </div>
+                {/* Input base selector */}
+                <div className="flex gap-1">
+                  {(["DEC", "HEX", "BIN"] as const).map(base => (
+                    <button key={base} onClick={() => { setAluInputBase(base); setAluA("0"); setAluB("0"); setAluResult(null); setCpuFlags(null); }}
+                      className={`px-2 py-0.5 text-[10px] font-mono-display border tracking-widest transition-all ${
+                        aluInputBase === base ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-700 text-slate-500 hover:border-slate-500"
+                      }`}>{base}</button>
+                  ))}
+                </div>
               </div>
               <div
                 className={`flex items-center justify-between p-2 border mb-1 cursor-pointer transition-all duration-150 ${aluInputFocus === "A" ? "border-cyan-500 bg-cyan-500/5" : "border-slate-700 hover:border-slate-500"}`}
                 onClick={() => setAluInputFocus("A")}
               >
                 <span className="text-[10px] text-slate-500 tracking-widest">A</span>
-                <span className="font-mono-display text-xl text-cyan-400">{aluInputFocus === "A" ? aluA + "▌" : aluA}</span>
-                <span className="font-mono-display text-[10px] text-slate-500">{`0x${toHex(aluAInt)}`}</span>
+                <span className="font-mono-display text-xl text-cyan-400 tracking-wider">{aluInputFocus === "A" ? aluA + "▌" : aluA}</span>
+                <div className="flex flex-col items-end gap-0.5">
+                  {aluInputBase !== "HEX" && <span className="font-mono-display text-[10px] text-slate-500">0x{toHex(parseAluVal(aluA))}</span>}
+                  {aluInputBase !== "BIN" && <span className="font-mono-display text-[10px] text-slate-600">{toBinary(parseAluVal(aluA)).slice(-8)}…</span>}
+                </div>
               </div>
               <div
                 className={`flex items-center justify-between p-2 border mb-3 cursor-pointer transition-all duration-150 ${aluInputFocus === "B" ? "border-cyan-500 bg-cyan-500/5" : "border-slate-700 hover:border-slate-500"}`}
                 onClick={() => setAluInputFocus("B")}
               >
                 <span className="text-[10px] text-slate-500 tracking-widest">B</span>
-                <span className="font-mono-display text-xl text-cyan-400">{aluInputFocus === "B" ? aluB + "▌" : aluB}</span>
-                <span className="font-mono-display text-[10px] text-slate-500">{`0x${toHex(aluBInt)}`}</span>
+                <span className="font-mono-display text-xl text-cyan-400 tracking-wider">{aluInputFocus === "B" ? aluB + "▌" : aluB}</span>
+                <div className="flex flex-col items-end gap-0.5">
+                  {aluInputBase !== "HEX" && <span className="font-mono-display text-[10px] text-slate-500">0x{toHex(parseAluVal(aluB))}</span>}
+                  {aluInputBase !== "BIN" && <span className="font-mono-display text-[10px] text-slate-600">{toBinary(parseAluVal(aluB)).slice(-8)}…</span>}
+                </div>
               </div>
               <div className="flex items-center justify-between p-2 border border-emerald-700/40 bg-emerald-900/10">
                 <span className="text-[10px] text-slate-500 tracking-widest">{aluOp ? `BITWISE ${aluOp} OUT` : "OUT"}</span>
                 <span className="font-mono-display text-2xl font-bold text-emerald-400">{aluResult !== null ? aluResult : "—"}</span>
                 <span className="font-mono-display text-[10px] text-slate-500">{aluResultInt !== null ? `0x${toHex(aluResultInt)}` : "0x——"}</span>
               </div>
+              {/* CPU Status Flags */}
+              {cpuFlags && (
+                <div className="mt-3 border border-slate-700/50 bg-slate-800/30 p-2">
+                  <div className="text-[9px] text-slate-600 tracking-widest mb-1.5">CPU STATUS FLAGS (16-bit)</div>
+                  <div className="grid grid-cols-4 gap-1.5 mb-2">
+                    {([
+                      { flag: "Z", label: "Zero",     val: cpuFlags.Z, color: "emerald" },
+                      { flag: "N", label: "Negative", val: cpuFlags.N, color: "red" },
+                      { flag: "C", label: "Carry",    val: cpuFlags.C, color: "amber" },
+                      { flag: "V", label: "Overflow", val: cpuFlags.V, color: "violet" },
+                    ] as const).map(({ flag, label, val, color }) => (
+                      <div key={flag} className={`flex flex-col items-center p-1.5 border ${
+                        val
+                          ? color === "emerald" ? "border-emerald-500/60 bg-emerald-900/20" :
+                            color === "red" ? "border-red-500/60 bg-red-900/20" :
+                            color === "amber" ? "border-amber-500/60 bg-amber-900/20" :
+                            "border-violet-500/60 bg-violet-900/20"
+                          : "border-slate-700/40 bg-transparent"
+                      }`}>
+                        <span className={`font-mono-display text-lg font-bold ${
+                          val
+                            ? color === "emerald" ? "text-emerald-400" :
+                              color === "red" ? "text-red-400" :
+                              color === "amber" ? "text-amber-400" :
+                              "text-violet-400"
+                            : "text-slate-700"
+                        }`}>{val ? 1 : 0}</span>
+                        <span className={`text-[9px] tracking-widest ${
+                          val
+                            ? color === "emerald" ? "text-emerald-600" :
+                              color === "red" ? "text-red-600" :
+                              color === "amber" ? "text-amber-600" :
+                              "text-violet-600"
+                            : "text-slate-700"
+                        }`}>{flag}</span>
+                        <span className="text-[8px] text-slate-700">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-0.5">
+                    {cpuFlags.descriptions.map((d, i) => (
+                      <div key={i} className="font-mono-display text-[10px] text-slate-500">{d}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {aluResult !== null && (
               <div className="px-4 py-3 border-b border-border bg-slate-900/40">
@@ -845,37 +991,57 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            {/* Numpad */}
-            <div className="p-3 grid grid-cols-4 gap-1.5">
-              <div className="col-span-4 text-[10px] text-slate-600 tracking-widest mb-1">INPUT → {aluInputFocus === "A" ? "OPERAND A" : "OPERAND B"}</div>
-              <button onClick={() => setAluInputFocus("A")} className={`h-10 text-xs font-medium border transition-all ${aluInputFocus === "A" ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-600 text-slate-500 hover:border-slate-400"}`}>→ A</button>
-              <button onClick={() => setAluInputFocus("B")} className={`h-10 text-xs font-medium border transition-all ${aluInputFocus === "B" ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-600 text-slate-500 hover:border-slate-400"}`}>→ B</button>
-              <button onClick={aluBackspace} className="h-10 text-xs font-medium border border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-200 transition-all">⌫</button>
-              <button onClick={aluClear} className="h-10 text-xs font-medium border border-slate-600 text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center justify-center gap-1"><RotateCcw className="w-3 h-3" /> CLR</button>
-              {["7","8","9","+/−","4","5","6","USE","1","2","3"].map((d, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    if (d === "+/−") {
-                      const setter = aluInputFocus === "A" ? setAluA : setAluB;
-                      setter(prev => String(-parseInt(prev)));
-                      setAluResult(null);
-                    } else if (d === "USE") {
-                      if (aluResult !== null) {
-                        const setter = aluInputFocus === "A" ? setAluA : setAluB;
-                        setter(aluResult);
-                        setAluResult(null);
-                      }
-                    } else {
-                      aluInputDigit(d);
-                    }
-                  }}
-                  className={`h-10 font-mono-display text-sm border transition-all duration-150 active:scale-95 ${d === "USE" ? "border-emerald-700/50 text-emerald-400 bg-emerald-900/10 hover:border-emerald-500" : "border-slate-600 text-slate-200 bg-slate-800/60 hover:bg-slate-700 hover:border-slate-500"}`}
-                >
-                  {d}
-                </button>
-              ))}
-              <button onClick={() => aluInputDigit("0")} className="h-10 font-mono-display text-sm border border-slate-600 text-slate-200 bg-slate-800/60 hover:bg-slate-700 col-span-4 transition-all active:scale-95">0</button>
+            {/* Adaptive Keypad */}
+            <div className="p-3 space-y-1.5">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] text-slate-600 tracking-widest">INPUT → {aluInputFocus === "A" ? "OPERAND A" : "OPERAND B"} [{aluInputBase}]</div>
+                <div className="flex gap-1">
+                  <button onClick={() => setAluInputFocus("A")} className={`h-7 px-2 text-[10px] font-medium border transition-all ${aluInputFocus === "A" ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-600 text-slate-500 hover:border-slate-400"}`}>→ A</button>
+                  <button onClick={() => setAluInputFocus("B")} className={`h-7 px-2 text-[10px] font-medium border transition-all ${aluInputFocus === "B" ? "border-cyan-500 text-cyan-400 bg-cyan-500/10" : "border-slate-600 text-slate-500 hover:border-slate-400"}`}>→ B</button>
+                  <button onClick={aluBackspace} className="h-7 px-2 text-[10px] font-medium border border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-200 transition-all">⌫</button>
+                  <button onClick={aluClear} className="h-7 px-2 text-[10px] font-medium border border-slate-600 text-slate-400 hover:border-red-500 hover:text-red-400 transition-all flex items-center gap-1"><RotateCcw className="w-3 h-3" /> CLR</button>
+                </div>
+              </div>
+              {/* DEC keypad */}
+              {aluInputBase === "DEC" && (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["7","8","9","USE","4","5","6","+/−","1","2","3"].map((d, i) => (
+                    <button key={i} onClick={() => {
+                      if (d === "+/−") { const s = aluInputFocus === "A" ? setAluA : setAluB; s(prev => String(-parseInt(prev))); setAluResult(null); }
+                      else if (d === "USE") { if (aluResult !== null) { const s = aluInputFocus === "A" ? setAluA : setAluB; s(aluResult); setAluResult(null); } }
+                      else aluInputDigit(d);
+                    }}
+                    className={`h-10 font-mono-display text-sm border transition-all duration-150 active:scale-95 ${d === "USE" ? "border-emerald-700/50 text-emerald-400 bg-emerald-900/10 hover:border-emerald-500" : "border-slate-600 text-slate-200 bg-slate-800/60 hover:bg-slate-700 hover:border-slate-500"}`}>{d}</button>
+                  ))}
+                  <button onClick={() => aluInputDigit("0")} className="h-10 font-mono-display text-sm border border-slate-600 text-slate-200 bg-slate-800/60 hover:bg-slate-700 col-span-4 transition-all active:scale-95">0</button>
+                </div>
+              )}
+              {/* HEX keypad */}
+              {aluInputBase === "HEX" && (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {["7","8","9","A","4","5","6","B","1","2","3","C","0","D","E","F"].map((d, i) => (
+                    <button key={i} onClick={() => aluInputDigit(d)}
+                      className="h-10 font-mono-display text-sm border border-slate-600 text-slate-200 bg-slate-800/60 hover:bg-slate-700 hover:border-slate-500 transition-all active:scale-95"
+                    >{d}</button>
+                  ))}
+                  <button onClick={() => { if (aluResult !== null) { const s = aluInputFocus === "A" ? setAluA : setAluB; s(aluResult); setAluResult(null); } }}
+                    className="h-10 font-mono-display text-xs border border-emerald-700/50 text-emerald-400 bg-emerald-900/10 hover:border-emerald-500 col-span-4 transition-all active:scale-95">USE RESULT</button>
+                </div>
+              )}
+              {/* BIN keypad */}
+              {aluInputBase === "BIN" && (
+                <div className="space-y-1.5">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {["0","1"].map(d => (
+                      <button key={d} onClick={() => aluInputDigit(d)}
+                        className="h-12 font-mono-display text-xl border border-slate-600 text-slate-200 bg-slate-800/60 hover:bg-slate-700 hover:border-slate-500 transition-all active:scale-95"
+                      >{d}</button>
+                    ))}
+                  </div>
+                  <button onClick={() => { if (aluResult !== null) { const s = aluInputFocus === "A" ? setAluA : setAluB; s(aluResult); setAluResult(null); } }}
+                    className="h-9 w-full font-mono-display text-xs border border-emerald-700/50 text-emerald-400 bg-emerald-900/10 hover:border-emerald-500 transition-all active:scale-95">USE RESULT</button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1125,10 +1291,33 @@ export default function Home() {
               </div>
             </div>
 
-            {/* EML connection */}
-            <div className="border border-violet-700/30 bg-violet-900/10 p-3 text-[10px] text-slate-500">
-              <div className="text-violet-400 tracking-widest mb-1">EML CONNECTION</div>
-              <div>The base-e representation is natural for EML: since eml(x,1) = e^x, the exponent n in m×e^n is directly the EML input that produces the scale factor. The mantissa m is recovered as eml(ln(x) − n, 1).</div>
+            {/* EML connection — live derivation steps */}
+            <div className="border border-violet-700/30 bg-violet-900/10 p-3">
+              <div className="text-[10px] text-violet-400 tracking-widest mb-1">EML CONNECTION — BASE-e COMPUTED VIA EML OPERATOR</div>
+              <div className="text-[10px] text-slate-500 mb-2">
+                Since <span className="text-violet-300 font-mono-display">eml(x, 1) = exp(x) − ln(1) = e^x</span>, the scale factor e^n and mantissa m are both computed by a single EML call each:
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-3 text-[10px]">
+                <div className="border border-violet-700/20 bg-slate-800/40 p-2">
+                  <div className="text-violet-400 tracking-widest mb-1">SCALE FACTOR</div>
+                  <div className="font-mono-display text-violet-300">e^n = eml(n, 1)</div>
+                  <div className="text-slate-600 mt-0.5">exp(n) − ln(1) = e^n</div>
+                </div>
+                <div className="border border-violet-700/20 bg-slate-800/40 p-2">
+                  <div className="text-violet-400 tracking-widest mb-1">MANTISSA</div>
+                  <div className="font-mono-display text-violet-300">m = eml(ln|x|−n, 1)</div>
+                  <div className="text-slate-600 mt-0.5">exp(ln|x|−n) = |x|/e^n</div>
+                </div>
+              </div>
+              {baseERepr.emlSteps.length > 0 && (
+                <div className="border border-violet-700/20 bg-slate-800/30 p-2">
+                  <div className="text-[9px] text-violet-500 tracking-widest mb-1">LIVE EML DERIVATION FOR x = {floatInput}</div>
+                  {baseERepr.emlSteps.map((step, i) => (
+                    <div key={i} className="font-mono-display text-[10px] text-slate-400">{step}</div>
+                  ))}
+                </div>
+              )}
+              <div className="text-[9px] text-slate-700 mt-2">Source: Odrzywołek, A. (2026). arXiv:2603.21852 [cs.SC]</div>
             </div>
           </div>
         )}

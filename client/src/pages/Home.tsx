@@ -766,7 +766,10 @@ export default function Home() {
           <div className="flex flex-col">
             {/* ALU Display */}
             <div className="border-b border-border bg-slate-900/80 p-4">
-              <div className="text-[10px] text-slate-600 tracking-widest mb-2">ARITHMETIC LOGIC UNIT</div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="text-[10px] text-slate-600 tracking-widest">ARITHMETIC LOGIC UNIT</div>
+                <div className="text-[10px] px-1.5 py-0.5 border border-cyan-700/50 text-cyan-500 bg-cyan-900/20 tracking-widest">16-BIT BITWISE</div>
+              </div>
               <div
                 className={`flex items-center justify-between p-2 border mb-1 cursor-pointer transition-all duration-150 ${aluInputFocus === "A" ? "border-cyan-500 bg-cyan-500/5" : "border-slate-700 hover:border-slate-500"}`}
                 onClick={() => setAluInputFocus("A")}
@@ -784,7 +787,7 @@ export default function Home() {
                 <span className="font-mono-display text-[10px] text-slate-500">{`0x${toHex(aluBInt)}`}</span>
               </div>
               <div className="flex items-center justify-between p-2 border border-emerald-700/40 bg-emerald-900/10">
-                <span className="text-[10px] text-slate-500 tracking-widest">{aluOp ? `OUT (${aluOp})` : "OUT"}</span>
+                <span className="text-[10px] text-slate-500 tracking-widest">{aluOp ? `BITWISE ${aluOp} OUT` : "OUT"}</span>
                 <span className="font-mono-display text-2xl font-bold text-emerald-400">{aluResult !== null ? aluResult : "—"}</span>
                 <span className="font-mono-display text-[10px] text-slate-500">{aluResultInt !== null ? `0x${toHex(aluResultInt)}` : "0x——"}</span>
               </div>
@@ -797,17 +800,49 @@ export default function Home() {
             )}
             {/* Logic ops */}
             <div className="p-3 border-b border-border">
-              <div className="text-[10px] text-slate-600 tracking-widest mb-2">LOGIC OPERATIONS</div>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(["AND", "OR", "XOR", "NOT", "NAND", "NOR", "SHL", "SHR"] as AluOp[]).map(op => (
+              <div className="flex items-center gap-2 mb-2">
+                <div className="text-[10px] text-slate-600 tracking-widest">BITWISE LOGIC OPERATIONS</div>
+                <div className="text-[10px] text-slate-700 tracking-widest">— operates on individual bits</div>
+              </div>
+              {/* Bitwise op descriptions */}
+              <div className="grid grid-cols-4 gap-1.5 mb-2">
+                {([
+                  { op: "AND",  desc: "bit AND" },
+                  { op: "OR",   desc: "bit OR" },
+                  { op: "XOR",  desc: "bit XOR" },
+                  { op: "NOT",  desc: "bit NOT" },
+                  { op: "NAND", desc: "~(A&B)" },
+                  { op: "NOR",  desc: "~(A|B)" },
+                  { op: "SHL",  desc: "shift ←" },
+                  { op: "SHR",  desc: "shift →" },
+                ] as { op: AluOp; desc: string }[]).map(({ op, desc }) => (
                   <button
                     key={op}
                     onClick={() => performAlu(op)}
-                    className={`h-10 font-mono-display text-xs font-semibold border transition-all duration-150 active:scale-95 ${aluOp === op ? "border-cyan-400 text-cyan-300 bg-cyan-500/15" : "border-cyan-700/50 text-cyan-400 bg-cyan-900/10 hover:border-cyan-500"}`}
+                    className={`h-14 flex flex-col items-center justify-center gap-0.5 font-mono-display text-xs font-semibold border transition-all duration-150 active:scale-95 ${aluOp === op ? "border-cyan-400 text-cyan-300 bg-cyan-500/15" : "border-cyan-700/50 text-cyan-400 bg-cyan-900/10 hover:border-cyan-500"}`}
                   >
-                    {op}
+                    <span className="text-xs font-bold">{op}</span>
+                    <span className="text-[9px] opacity-60 font-normal">{desc}</span>
                   </button>
                 ))}
+              </div>
+              {/* Truth table legend */}
+              <div className="border border-slate-700/60 bg-slate-800/30 p-2 mb-1">
+                <div className="text-[9px] text-slate-600 tracking-widest mb-1">BITWISE TRUTH TABLE (per bit)</div>
+                <div className="grid grid-cols-7 gap-x-2 font-mono-display text-[10px]">
+                  <span className="text-slate-500">A</span>
+                  <span className="text-slate-500">B</span>
+                  <span className="text-cyan-600">AND</span>
+                  <span className="text-cyan-600">OR</span>
+                  <span className="text-cyan-600">XOR</span>
+                  <span className="text-cyan-600">NAND</span>
+                  <span className="text-cyan-600">NOR</span>
+                  {[[0,0,0,0,0,1,1],[0,1,0,1,1,1,0],[1,0,0,1,1,1,0],[1,1,1,1,0,0,0]].map((row, ri) =>
+                    row.map((v, ci) => (
+                      <span key={`${ri}-${ci}`} className={v ? "text-emerald-400" : "text-slate-600"}>{v}</span>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
             {/* Numpad */}

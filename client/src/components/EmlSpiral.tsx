@@ -190,6 +190,15 @@ function computeNodePositions(width: number, height: number) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// Bootstrap order: eml → seeds → algebraic ring1 → algebraic ring2 → trig → hyperbolic
+const BOOTSTRAP_ORDER = [
+  "eml", "one", "e", "exp", "ln", "neg1", "two",
+  "minus", "plus", "times", "inv", "negx", "sqr", "div", "xhalf", "pow",
+  "sqrt", "logxy", "avg", "hypot", "pi", "sigma",
+  "sin", "cos", "tan", "arcsin", "arccos", "arctan",
+  "sinh", "cosh", "tanh", "arsinh", "arcosh", "artanh",
+];
+
 export default function EmlSpiral() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -197,6 +206,28 @@ export default function EmlSpiral() {
   const [selected, setSelected] = useState<Node | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [animating, setAnimating] = useState(false);
+  const [revealedCount, setRevealedCount] = useState(BOOTSTRAP_ORDER.length);
+  const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startAnimation = useCallback(() => {
+    if (animRef.current) clearInterval(animRef.current);
+    setRevealedCount(0);
+    setAnimating(true);
+    let count = 0;
+    animRef.current = setInterval(() => {
+      count++;
+      setRevealedCount(count);
+      if (count >= BOOTSTRAP_ORDER.length) {
+        clearInterval(animRef.current!);
+        setAnimating(false);
+      }
+    }, 220);
+  }, []);
+
+  useEffect(() => () => { if (animRef.current) clearInterval(animRef.current); }, []);
+
+  const revealedSet = new Set(BOOTSTRAP_ORDER.slice(0, revealedCount));
 
   useEffect(() => {
     const obs = new ResizeObserver(entries => {
@@ -233,8 +264,43 @@ export default function EmlSpiral() {
 
   return (
     <div ref={containerRef} className="w-full">
-      {/* Legend / filter */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
+      {/* Controls row */}
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { cat: null, label: "ALL" },
+            { cat: "seed", label: "CONSTANTS" },
+            { cat: "algebraic", label: "ALGEBRAIC" },
+            { cat: "trig", label: "TRIG" },
+            { cat: "hyperbolic", label: "HYPERBOLIC" },
+          ].map(({ cat, label }) => {
+            const col = cat ? CATEGORY_COLORS[cat] : null;
+            return (
+              <button
+                key={label}
+                onClick={() => setFilterCategory(f => f === cat ? null : cat)}
+                className={`px-2 py-0.5 text-[10px] font-medium border transition-all tracking-widest ${filterCategory === cat ? "opacity-100" : "opacity-50 hover:opacity-80"}`}
+                style={col ? { borderColor: col.stroke, color: col.text, backgroundColor: col.fill + "22" } : { borderColor: "#475569", color: "#94a3b8" }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={startAnimation}
+          disabled={animating}
+          className={`px-3 py-1 text-[10px] font-medium border tracking-widest transition-all ${
+            animating
+              ? "border-rose-700/40 text-rose-600 cursor-not-allowed"
+              : "border-rose-600/60 text-rose-400 hover:bg-rose-900/20 active:scale-95"
+          }`}
+        >
+          {animating ? `▶ BOOTSTRAPPING... (${revealedCount}/${BOOTSTRAP_ORDER.length})` : "▶ REPLAY BOOTSTRAP"}
+        </button>
+      </div>
+      {/* Legend / filter (hidden — merged above) */}
+      <div className="hidden">
         {[
           { cat: null, label: "ALL" },
           { cat: "seed", label: "CONSTANTS" },
@@ -332,6 +398,8 @@ export default function EmlSpiral() {
           const r = nodeRadius(node);
           const highlighted = isHighlighted(node.id);
           const isSelected = selected?.id === node.id;
+          const isRevealed = revealedSet.has(node.id);
+          const isJustRevealed = BOOTSTRAP_ORDER[revealedCount - 1] === node.id;
 
           return (
             <g
@@ -341,7 +409,11 @@ export default function EmlSpiral() {
               onClick={() => setSelected(s => s?.id === node.id ? null : node)}
               onMouseEnter={() => setHovered(node.id)}
               onMouseLeave={() => setHovered(null)}
-              style={{ opacity: highlighted ? 1 : 0.2, transition: "opacity 0.2s" }}
+              style={{
+                opacity: !isRevealed ? 0 : highlighted ? 1 : 0.2,
+                transition: "opacity 0.3s",
+                transform: `translate(${pos.x}px, ${pos.y}px) scale(${isJustRevealed ? 1.4 : 1})`,
+              }}
             >
               {/* Glow ring for selected */}
               {isSelected && (

@@ -22,7 +22,7 @@
  *     → Ackermann (NOT primitive recursive — grows too fast)
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -436,6 +436,238 @@ export default function PrimRecursive() {
           PR = Primitive Recursive · μ-recursive = General Recursive (Turing-complete)
         </div>
       </div>
+
+      {/* Ackermann Growth Chart */}
+      <AckermannChart />
+
+      {/* PR Function Composer */}
+      <PRComposer />
+    </div>
+  );
+}
+
+// ─── Ackermann Growth Chart ───────────────────────────────────────────────────
+
+function AckermannChart() {
+  // For n=1..6, compare fact(n), exp(2,n), A(2,n), A(3,n)
+  const ns = [0, 1, 2, 3, 4, 5, 6];
+
+  function safeAck(m: number, n: number): number {
+    let calls = 0;
+    function a(m: number, n: number): number {
+      if (++calls > 200000) return Infinity;
+      if (m === 0) return n + 1;
+      if (n === 0) return a(m - 1, 1);
+      return a(m - 1, a(m, n - 1));
+    }
+    try { return a(m, n); } catch { return Infinity; }
+  }
+
+  const series = [
+    { label: "n!", color: "#06b6d4", fn: (n: number) => { let f=1; for(let i=2;i<=n;i++) f*=i; return f; } },
+    { label: "2ⁿ", color: "#10b981", fn: (n: number) => Math.pow(2, n) },
+    { label: "A(2,n)", color: "#f59e0b", fn: (n: number) => safeAck(2, n) },
+    { label: "A(3,n)", color: "#ef4444", fn: (n: number) => safeAck(3, n) },
+  ];
+
+  // Compute values, cap at 1e15 for display
+  const data = ns.map(n => ({
+    n,
+    values: series.map(s => {
+      const v = s.fn(n);
+      return isFinite(v) ? v : Infinity;
+    }),
+  }));
+
+  // Log scale bar chart — find max finite log value
+  const allFinite = data.flatMap(d => d.values).filter(v => isFinite(v) && v > 0);
+  const maxLog = Math.max(...allFinite.map(v => Math.log10(v + 1)));
+
+  const barH = 120;
+
+  return (
+    <div className="border border-red-700/30 bg-red-900/5 p-3">
+      <div className="text-[10px] text-red-400 tracking-widest mb-1">ACKERMANN GROWTH RATE (log₁₀ scale)</div>
+      <div className="text-[10px] text-slate-500 mb-3">
+        Comparing n!, 2ⁿ, A(2,n), A(3,n) — Ackermann grows faster than any primitive recursive function.
+      </div>
+      <div className="overflow-x-auto">
+        <svg width={Math.max(400, ns.length * 60 + 40)} height={barH + 60} className="font-mono-display">
+          {/* Grid lines */}
+          {[0, 0.25, 0.5, 0.75, 1].map(frac => (
+            <g key={frac}>
+              <line x1={30} y1={barH - frac * barH + 10} x2={ns.length * 60 + 30} y2={barH - frac * barH + 10}
+                stroke="#1e293b" strokeWidth="1" />
+              <text x={25} y={barH - frac * barH + 14} textAnchor="end" fill="#475569" fontSize="8">
+                {(frac * maxLog).toFixed(0)}
+              </text>
+            </g>
+          ))}
+          {/* Bars */}
+          {ns.map((n, ni) => {
+            const groupX = 30 + ni * 60;
+            const barW = 10;
+            return (
+              <g key={n}>
+                {series.map((s, si) => {
+                  const v = data[ni].values[si];
+                  const logV = isFinite(v) && v > 0 ? Math.log10(v + 1) : 0;
+                  const h = (logV / maxLog) * barH;
+                  const x = groupX + si * (barW + 1);
+                  const label = isFinite(v) ? (v > 1e9 ? v.toExponential(1) : v.toLocaleString()) : "∞";
+                  return (
+                    <g key={si}>
+                      <rect x={x} y={barH - h + 10} width={barW} height={Math.max(h, 1)}
+                        fill={s.color} opacity="0.8" />
+                      {v > 0 && (
+                        <text x={x + barW/2} y={barH - h + 7} textAnchor="middle" fill={s.color} fontSize="7">
+                          {label}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+                <text x={groupX + 22} y={barH + 22} textAnchor="middle" fill="#64748b" fontSize="9">n={n}</text>
+              </g>
+            );
+          })}
+          {/* Legend */}
+          {series.map((s, i) => (
+            <g key={i} transform={`translate(${30 + i * 80}, ${barH + 36})`}>
+              <rect width="10" height="8" fill={s.color} opacity="0.8" />
+              <text x="13" y="8" fill={s.color} fontSize="9">{s.label}</text>
+            </g>
+          ))}
+        </svg>
+      </div>
+      <div className="text-[10px] text-slate-600 mt-1">
+        A(3,4) = 2^65536 − 3 · A(4,0) = 65533 · Values shown as log₁₀ bar heights
+      </div>
+    </div>
+  );
+}
+
+// ─── PR Function Composer ─────────────────────────────────────────────────────
+
+const COMPOSABLE = PR_FUNCTIONS.filter(f => f.category !== "non-pr");
+
+function PRComposer() {
+  const [outerFn, setOuterFn] = useState<PRFunction>(COMPOSABLE[3]); // mul
+  const [innerFn, setInnerFn] = useState<PRFunction>(COMPOSABLE[3]); // add
+  const [args, setArgs] = useState<string[]>(["2", "3", "4"]);
+  const [result, setResult] = useState<{ result: number; steps: string[] } | null>(null);
+
+  // Composition: outer(inner(x, y), z) — simplified: apply inner to first arity args, pipe to outer
+  const composed = useMemo(() => {
+    return {
+      name: `${outerFn.name} ∘ ${innerFn.name}`,
+      notation: `h(x, y, z) = ${outerFn.notation.split("=")[0].trim()}(${innerFn.notation.split("=")[0].trim()}(x, y), z)`,
+      description: `Composition: first compute ${innerFn.name} of (x, y), then apply ${outerFn.name} to (result, z).`,
+    };
+  }, [outerFn, innerFn]);
+
+  const compute = useCallback(() => {
+    const [a, b, c] = args.map(v => Math.max(0, Math.floor(parseFloat(v) || 0)));
+    const steps: string[] = [`Composition: ${outerFn.name}(${innerFn.name}(${a}, ${b}), ${c})`];
+
+    // Step 1: inner
+    const innerArgs = innerFn.arity === 1 ? [a] : [a, b];
+    const innerRes = innerFn.compute(innerArgs);
+    steps.push(`Step 1 — ${innerFn.name}(${innerArgs.join(", ")}):`);
+    innerRes.steps.slice(0, 4).forEach(s => steps.push("  " + s));
+    if (innerRes.steps.length > 4) steps.push(`  ... (${innerRes.steps.length - 4} more)`);
+    steps.push(`  → ${innerFn.name} result = ${isFinite(innerRes.result) ? innerRes.result : "∞"}`);
+
+    if (!isFinite(innerRes.result)) {
+      setResult({ result: Infinity, steps });
+      return;
+    }
+
+    // Step 2: outer
+    const outerArgs = outerFn.arity === 1 ? [innerRes.result] : [innerRes.result, c];
+    const outerRes = outerFn.compute(outerArgs);
+    steps.push(`Step 2 — ${outerFn.name}(${outerArgs.join(", ")}):`);
+    outerRes.steps.slice(0, 4).forEach(s => steps.push("  " + s));
+    if (outerRes.steps.length > 4) steps.push(`  ... (${outerRes.steps.length - 4} more)`);
+    steps.push(`  → ${outerFn.name} result = ${isFinite(outerRes.result) ? outerRes.result : "∞"}`);
+
+    setResult({ result: outerRes.result, steps });
+  }, [outerFn, innerFn, args]);
+
+  return (
+    <div className="border border-teal-700/30 bg-teal-900/5 p-3 space-y-3">
+      <div className="text-[10px] text-teal-400 tracking-widest">PR FUNCTION COMPOSER</div>
+      <div className="text-[11px] text-slate-400">
+        Compose two primitive recursive functions: h = outer ∘ inner.
+        The output of the inner function becomes the first input of the outer function.
+      </div>
+
+      {/* Function selectors */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-[10px] text-slate-500 tracking-widest mb-1">INNER FUNCTION f(x, y)</div>
+          <div className="grid grid-cols-2 gap-1">
+            {COMPOSABLE.map(fn => (
+              <button key={fn.id} onClick={() => { setInnerFn(fn); setResult(null); }}
+                className={`h-8 text-[10px] font-mono-display border transition-all ${innerFn.id === fn.id ? "border-teal-400 text-teal-300 bg-teal-500/15" : "border-slate-700 text-slate-500 hover:border-slate-500"}`}>
+                {fn.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-[10px] text-slate-500 tracking-widest mb-1">OUTER FUNCTION g(·, z)</div>
+          <div className="grid grid-cols-2 gap-1">
+            {COMPOSABLE.map(fn => (
+              <button key={fn.id} onClick={() => { setOuterFn(fn); setResult(null); }}
+                className={`h-8 text-[10px] font-mono-display border transition-all ${outerFn.id === fn.id ? "border-teal-400 text-teal-300 bg-teal-500/15" : "border-slate-700 text-slate-500 hover:border-slate-500"}`}>
+                {fn.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Composed definition */}
+      <div className="border border-teal-700/30 bg-slate-800/40 p-2">
+        <div className="text-[10px] text-slate-500 tracking-widest mb-1">COMPOSED FUNCTION</div>
+        <div className="font-mono-display text-teal-300 text-[11px]">{composed.notation}</div>
+        <div className="text-[10px] text-slate-500 mt-1">{composed.description}</div>
+      </div>
+
+      {/* Inputs */}
+      <div className="flex gap-2 flex-wrap items-end">
+        {["x", "y", "z"].map((label, i) => (
+          <div key={i}>
+            <div className="text-[10px] text-slate-500 tracking-widest mb-1">{label}</div>
+            <input type="number" min="0" max="99" value={args[i] ?? "0"}
+              onChange={e => { const a = [...args]; a[i] = e.target.value; setArgs(a); setResult(null); }}
+              className="w-16 bg-slate-800 border border-slate-600 text-cyan-400 font-mono-display text-sm px-2 py-1.5 focus:outline-none focus:border-teal-500" />
+          </div>
+        ))}
+        <button onClick={compute}
+          className="h-9 px-4 font-mono-display text-xs font-semibold border border-teal-500 text-teal-300 hover:bg-teal-500/10 transition-all active:scale-95">
+          COMPOSE &amp; COMPUTE
+        </button>
+      </div>
+
+      {/* Result */}
+      {result && (
+        <div className="space-y-1">
+          <div className="border border-teal-700/40 bg-teal-900/10 p-2">
+            <span className="text-[10px] text-slate-500">{composed.name} = </span>
+            <span className="font-mono-display text-teal-300 text-lg">
+              {isFinite(result.result) ? result.result.toLocaleString() : "∞ (too large)"}
+            </span>
+          </div>
+          <div className="border border-slate-700 bg-slate-800/40 p-2 max-h-48 overflow-y-auto">
+            <div className="text-[10px] text-slate-500 tracking-widest mb-1">COMPOSITION TRACE</div>
+            {result.steps.map((s, i) => (
+              <div key={i} className="font-mono-display text-[11px] text-slate-400">{s}</div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

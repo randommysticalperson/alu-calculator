@@ -11,11 +11,13 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary } from "lucide-react";
+import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare } from "lucide-react";
+import EmlSpiral from "@/components/EmlSpiral";
+import PrimRecursive from "@/components/PrimRecursive";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = "standard" | "alu" | "eml" | "float";
+type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec";
 type AluOp = "AND" | "OR" | "XOR" | "NOT" | "SHL" | "SHR" | "NAND" | "NOR";
 
 // ─── IEEE-754 Float Utilities ─────────────────────────────────────────────────
@@ -622,6 +624,8 @@ export default function Home() {
     { id: "alu", label: "ALU", icon: <Cpu className="w-3.5 h-3.5" />, color: "cyan" },
     { id: "eml", label: "EML", icon: <FlaskConical className="w-3.5 h-3.5" />, color: "violet" },
     { id: "float", label: "FLOAT", icon: <Binary className="w-3.5 h-3.5" />, color: "amber" },
+    { id: "spiral", label: "TREE", icon: <GitBranch className="w-3.5 h-3.5" />, color: "rose" },
+    { id: "primrec", label: "PR-FN", icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "teal" },
   ];
 
   const colorMap: Record<string, string> = {
@@ -629,6 +633,8 @@ export default function Home() {
     cyan: "border-cyan-500 text-cyan-400 bg-cyan-500/10",
     violet: "border-violet-500 text-violet-400 bg-violet-500/10",
     amber: "border-amber-500 text-amber-400 bg-amber-500/10",
+    rose: "border-rose-500 text-rose-400 bg-rose-500/10",
+    teal: "border-teal-500 text-teal-400 bg-teal-500/10",
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -642,7 +648,7 @@ export default function Home() {
           <span className="font-mono-display text-emerald-400 font-semibold tracking-wider text-xs">
             ALU CALCULATOR
           </span>
-          <span className="text-slate-600 text-[10px] font-mono-display">v2.0 · EML+FLOAT</span>
+          <span className="text-slate-600 text-[10px] font-mono-display">v3.0 · EML+FLOAT+PR</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           {tabs.map(tab => (
@@ -1089,6 +1095,35 @@ export default function Home() {
               <div className="text-violet-400 tracking-widest mb-1">EML CONNECTION</div>
               <div>The base-e representation is natural for EML: since eml(x,1) = e^x, the exponent n in m×e^n is directly the EML input that produces the scale factor. The mantissa m is recovered as eml(ln(x) − n, 1).</div>
             </div>
+          </div>
+        )}
+
+        {/* ── EML Spiral Tree ── */}
+        {mode === "spiral" && (
+          <div className="flex flex-col p-4 gap-4">
+            <div className="border border-rose-700/40 bg-rose-900/10 p-3">
+              <div className="text-[10px] text-rose-400 tracking-widest mb-1">EML BOOTSTRAPPING TREE — PHYLOGENETIC SPIRAL</div>
+              <div className="text-[11px] text-slate-400">
+                Recreates Fig. 1 from arXiv:2603.21852. EML at the centre bootstraps all 36 elementary functions
+                in rings — analogous to a LUCA (Last Universal Common Ancestor) phylogenetic tree.
+                Click any node to see its EML derivation formula.
+              </div>
+            </div>
+            <EmlSpiral />
+          </div>
+        )}
+
+        {/* ── Primitive Recursive Functions ── */}
+        {mode === "primrec" && (
+          <div className="flex flex-col p-4 gap-4">
+            <div className="border border-teal-700/40 bg-teal-900/10 p-3">
+              <div className="text-[10px] text-teal-400 tracking-widest mb-1">PRIMITIVE RECURSIVE FUNCTIONS</div>
+              <div className="text-[11px] text-slate-400">
+                The class of functions built from Zero, Successor, and Projection using Composition and Primitive Recursion.
+                Every PR function terminates. The Ackermann function is the classic example that escapes this class.
+              </div>
+            </div>
+            <PrimRecursive />
           </div>
         )}
       </main>

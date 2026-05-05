@@ -185,12 +185,12 @@ const COQ_PROOF = `(* ==========================================================
 (* Odrzywołek (2026) arXiv:2603.21852                          *)
 (* jsCoq: https://github.com/jscoq/jscoq                       *)
 (*                                                              *)
-(* NOTE: We axiomatise real arithmetic instead of              *)
-(* "Require Import Reals" to avoid a jsCoq stack overflow       *)
-(* caused by the 300-module Reals dependency chain.            *)
-(* The structural / inductive part is fully verified by Coq.   *)
+(* NO "Require Import" at all — avoids the 300-module Reals     *)
+(* dependency chain that causes a jsCoq stack overflow.        *)
+(* Real arithmetic is declared as Axioms; the structural part  *)
+(* (EmlExpr, eval, eml_size) is fully verified by Coq.         *)
 (* ============================================================ *)
-Require Import Coq.Arith.Arith.
+(* Coq.Init.* is loaded automatically by jsCoq — no imports needed *)
 
 (* ── Axiomatised real arithmetic ── *)
 (* Avoids Require Import Reals (causes jsCoq stack overflow)   *)
@@ -270,7 +270,11 @@ Fixpoint eml_size (e : EmlExpr) : nat :=
 (* Size is always positive *)
 Lemma eml_size_pos : forall e : EmlExpr, eml_size e >= 1.
 Proof.
-  induction e; simpl; lia.
+  induction e as [| | l IHl r IHr]; simpl.
+  - apply le_n.                         (* EConst: 1 >= 1 *)
+  - apply le_n.                         (* EVar:   1 >= 1 *)
+  - apply le_S.                         (* ENode:  1 <= 1 + size l + size r *)
+    apply le_0_n.
 Qed.
 
 (* ── Summary ──

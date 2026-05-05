@@ -11,11 +11,12 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare, Globe, Sun, Moon } from "lucide-react";
+import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, FunctionSquare, Globe, Sun, Moon, Share2, Check } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import EmlSpiral from "@/components/EmlSpiral";
 import PrimRecursive from "@/components/PrimRecursive";
 import AnalogComputer from "@/components/AnalogComputer";
+import EmlCircuit from "@/components/EmlCircuit";
 import EmlGrammar from "@/components/EmlGrammar";
 import FormalProof from "@/components/FormalProof";
 import { type Lang, t, langLabels, langNames, translations } from "@/lib/i18n";
@@ -457,6 +458,10 @@ function Float32BitField({ value }: { value: number }) {
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
   const [lang, setLang] = useState<Lang>(() => {
+    // Check URL hash first (permalink), then localStorage
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    const hashLang = hash.match(/lang=([a-z繁中]+)/)?.[1];
+    if (hashLang === 'en' || hashLang === 'pl' || hashLang === 'zh') return hashLang as Lang;
     const saved = localStorage.getItem("alu-calc-lang");
     return (saved === "en" || saved === "pl" || saved === "zh") ? saved as Lang : "en";
   });
@@ -469,7 +474,18 @@ export default function Home() {
   const [prevValue, setPrevValue] = useState<string | null>(null);
   const [operator, setOperator] = useState<string | null>(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
-  const [mode, setMode] = useState<Mode>("standard");
+  const [mode, setMode] = useState<Mode>(() => {
+    // Check URL hash first (permalink)
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    const hashTab = hash.match(/tab=([a-z]+)/)?.[1];
+    const validModes: Mode[] = ['standard','alu','eml','float','spiral','primrec','analog','grammar','proof'];
+    return (hashTab && validModes.includes(hashTab as Mode)) ? hashTab as Mode : 'standard';
+  });
+  // Update URL hash when tab or language changes (permalink)
+  useEffect(() => {
+    const hash = `#tab=${mode}&lang=${lang}`;
+    window.history.replaceState(null, '', hash);
+  }, [mode, lang]);
   const [aluA, setAluA] = useState("0");
   const [aluB, setAluB] = useState("0");
   const [aluResult, setAluResult] = useState<string | null>(null);
@@ -807,6 +823,25 @@ export default function Home() {
             </button>
             <Moon className={`w-3 h-3 transition-colors ${theme === 'dark' ? 'text-emerald-400' : 'text-slate-600'}`} />
           </div>
+          {/* Permalink button */}
+          <button
+            onClick={() => {
+              const hash = `#tab=${mode}&lang=${lang}`;
+              const url = window.location.origin + window.location.pathname + hash;
+              navigator.clipboard.writeText(url).then(() => {
+                const btn = document.getElementById('permalink-btn');
+                if (btn) { btn.setAttribute('data-copied', '1'); setTimeout(() => btn.removeAttribute('data-copied'), 2000); }
+              });
+            }}
+            id="permalink-btn"
+            className="group flex items-center gap-1 px-2 py-1 border border-slate-700 text-slate-500 hover:border-slate-400 hover:text-slate-300 transition-all text-[10px] font-mono-display"
+            title={{ en: 'Copy permalink', pl: 'Kopiuj link', zh: '複製連結' }[lang]}
+          >
+            <span className="group-[[data-copied]]:hidden"><Share2 className="w-3 h-3" /></span>
+            <span className="hidden group-[[data-copied]]:inline"><Check className="w-3 h-3 text-emerald-400" /></span>
+            <span className="group-[[data-copied]]:hidden">{ { en: 'Share', pl: 'Udostępnij', zh: '分享' }[lang] ?? 'Share' }</span>
+            <span className="hidden group-[[data-copied]]:inline text-emerald-400">{ { en: 'Copied!', pl: 'Skopiowano!', zh: '已複製!' }[lang] ?? 'Copied!' }</span>
+          </button>
           {/* GitHub badge */}
           <a
             href="https://github.com/randommysticalperson/alu-calculator"
@@ -1442,7 +1477,12 @@ export default function Home() {
           </div>
         )}
         {mode === "analog" && (
-          <AnalogComputer lang={lang} />
+          <div className="flex flex-col gap-6">
+            <AnalogComputer lang={lang} />
+            <div className="border-t border-slate-700 pt-4">
+              <EmlCircuit lang={lang} />
+            </div>
+          </div>
         )}
         {mode === "grammar" && (
           <EmlGrammar lang={lang} />

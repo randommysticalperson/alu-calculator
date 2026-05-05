@@ -122,7 +122,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: 0, y: 0 },
     rotation: 0,
     size: { width: 2, height: 3 },
-    symbol_name: "opamp",
+    symbol_name: "opamp_no_power_right",
     port_labels: {
       in_pos: "x (EXP input)",
       in_neg: "GND",
@@ -136,7 +136,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: 6, y: 0 },
     rotation: 0,
     size: { width: 2, height: 3 },
-    symbol_name: "opamp",
+    symbol_name: "opamp_no_power_right",
     port_labels: {
       in_pos: "y (LOG input)",
       in_neg: "GND",
@@ -150,7 +150,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: 12, y: 0 },
     rotation: 0,
     size: { width: 2, height: 3 },
-    symbol_name: "opamp",
+    symbol_name: "opamp_no_power_right",
     port_labels: {
       in_pos: "exp(x)",
       in_neg: "ln(y)",
@@ -164,7 +164,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: -3, y: -1 },
     rotation: 0,
     size: { width: 1, height: 0.3 },
-    symbol_name: "boxresistor",
+    symbol_name: "resistor_horz",
     symbol_display_value: "10kΩ",
   },
   {
@@ -174,7 +174,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: 3, y: -1 },
     rotation: 0,
     size: { width: 1, height: 0.3 },
-    symbol_name: "boxresistor",
+    symbol_name: "resistor_horz",
     symbol_display_value: "10kΩ",
   },
   {
@@ -184,7 +184,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: 9, y: -1 },
     rotation: 0,
     size: { width: 1, height: 0.3 },
-    symbol_name: "boxresistor",
+    symbol_name: "resistor_horz",
     symbol_display_value: "10kΩ",
   },
   {
@@ -194,7 +194,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: -1.5, y: 1 },
     rotation: 0,
     size: { width: 1, height: 1.5 },
-    symbol_name: "npn_transistor",
+    symbol_name: "npn_bipolar_transistor_horz",
   },
   {
     type: "schematic_component",
@@ -203,7 +203,7 @@ const EML_CIRCUIT_JSON = [
     center: { x: 4.5, y: 1 },
     rotation: 0,
     size: { width: 1, height: 1.5 },
-    symbol_name: "npn_transistor",
+    symbol_name: "npn_bipolar_transistor_horz",
   },
 
   // ── Schematic ports ───────────────────────────────────────────────────────

@@ -306,13 +306,22 @@ Fixpoint eml_size (e : EmlExpr) : nat :=
   end.
 
 (* Size is always positive *)
+(* Auxiliary: 1 <= S n for any n, using only Coq.Init.Peano *)
+Lemma one_le_succ : forall n : nat, 1 <= S n.
+Proof.
+  intro n.
+  apply le_n_S.
+  apply le_0_n.
+Qed.
+
 Lemma eml_size_pos : forall e : EmlExpr, eml_size e >= 1.
 Proof.
   induction e as [| | l IHl r IHr]; simpl.
   - apply le_n.                         (* EConst: 1 >= 1 *)
   - apply le_n.                         (* EVar:   1 >= 1 *)
-  - apply le_S.                         (* ENode:  1 <= 1 + size l + size r *)
-    apply le_0_n.
+  - (* ENode: goal is 1 <= S (eml_size l + eml_size r) *)
+    (* because 1 + a + b = S (a + b) by Nat addition *)
+    apply one_le_succ.
 Qed.
 
 (* ── Summary ──

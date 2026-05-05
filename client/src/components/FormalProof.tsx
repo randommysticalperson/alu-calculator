@@ -541,10 +541,24 @@ function Lean4Evaluator({ lang }: { lang: Lang }) {
   const [code, setCode] = useState(DEFAULT_EVAL_CODE);
   const [output, setOutput] = useState<string>("");
   const [running, setRunning] = useState(false);
+  // Step-through state
+  const [stepMode, setStepMode] = useState(false);
+  const [stepIndex, setStepIndex] = useState(0);
+  const [stepOutputs, setStepOutputs] = useState<string[]>([]);
+
+  // Parse code into lines and find #eval line indices
+  const lines = code.split("\n");
+  const evalLineIndices = lines
+    .map((l, i) => ({ l, i }))
+    .filter(({ l }) => /^\s*#eval\b/.test(l))
+    .map(({ i }) => i);
 
   const runCode = useCallback(() => {
     setRunning(true);
     setOutput("");
+    setStepMode(false);
+    setStepIndex(0);
+    setStepOutputs([]);
     try {
       const compiler = new Lean4Compiler({ verbose: false });
       const result = compiler.compile(code);
@@ -559,10 +573,58 @@ function Lean4Evaluator({ lang }: { lang: Lang }) {
     setRunning(false);
   }, [code]);
 
+  const startStepping = useCallback(() => {
+    setStepMode(true);
+    setStepIndex(0);
+    setStepOutputs([]);
+    setOutput("");
+  }, []);
+
+  const resetStepping = useCallback(() => {
+    setStepMode(false);
+    setStepIndex(0);
+    setStepOutputs([]);
+    setOutput("");
+  }, []);
+
+  const stepNext = useCallback(() => {
+    const currentLines = code.split("\n");
+    const currentEvalIndices = currentLines
+      .map((l, i) => ({ l, i }))
+      .filter(({ l }) => /^\s*#eval\b/.test(l))
+      .map(({ i }) => i);
+    if (stepIndex >= currentEvalIndices.length) return;
+    const targetLineIdx = currentEvalIndices[stepIndex];
+    const codeUpTo = currentLines.slice(0, targetLineIdx + 1).join("\n");
+    let lineOutput: string;
+    try {
+      const compiler = new Lean4Compiler({ verbose: false });
+      const result = compiler.compile(codeUpTo);
+      if (result.success) {
+        const outLines = (result.output || "").split("\n").filter(Boolean);
+        lineOutput = outLines[outLines.length - 1] ?? "(no output)";
+      } else {
+        lineOutput = "ERROR: " + result.errors.join("; ");
+      }
+    } catch (e: unknown) {
+      lineOutput = "ERROR: " + (e instanceof Error ? e.message : String(e));
+    }
+    const evalLine = currentLines[targetLineIdx]?.trim() ?? "";
+    setStepOutputs(prev => [...prev, `[L${targetLineIdx + 1}] ${evalLine}  →  ${lineOutput}`]);
+    setStepIndex(prev => prev + 1);
+  }, [code, stepIndex]);
+
+  const stepLabels: Record<Lang, { start: string; next: string; reset: string; done: string; stepResults: string }> = {
+    en: { start: "⊢ STEP", next: "⊢ NEXT", reset: "↺ RESET", done: "Done", stepResults: "STEP RESULTS" },
+    pl: { start: "⊢ KROK", next: "⊢ DALEJ", reset: "↺ RESET", done: "Gotowe", stepResults: "WYNIKI KROKÓW" },
+    zh: { start: "⊢ 逐步", next: "⊢ 下一步", reset: "↺ 重置", done: "完成", stepResults: "逐步結果" },
+  };
+  const sl = stepLabels[lang];
+
   return (
     <div className="flex flex-col gap-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <div className="text-[10px] text-emerald-400 tracking-widest">{tr("evalTitle")}</div>
           <div className="text-[9px] text-slate-600 mt-0.5">
@@ -577,30 +639,112 @@ function Lean4Evaluator({ lang }: { lang: Lang }) {
             </a>
           </div>
         </div>
-        <button
-          onClick={runCode}
-          disabled={running}
-          className="px-3 py-1.5 text-[10px] font-mono-display tracking-widest
-            bg-emerald-900/30 border border-emerald-700/60 text-emerald-400
-            hover:bg-emerald-900/60 hover:border-emerald-500 transition-all
-            disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {running ? tr("running") : tr("runBtn")}
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          {/* Step mode controls */}
+          {!stepMode ? (
+            <button
+              onClick={startStepping}
+              disabled={evalLineIndices.length === 0}
+              title="Step through #eval lines one at a time"
+              className="px-3 py-1.5 text-[10px] font-mono-display tracking-widest
+                bg-cyan-900/30 border border-cyan-700/60 text-cyan-400
+                hover:bg-cyan-900/60 hover:border-cyan-500 transition-all
+                disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {sl.start}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={stepNext}
+                disabled={stepIndex >= evalLineIndices.length}
+                className="px-3 py-1.5 text-[10px] font-mono-display tracking-widest
+                  bg-cyan-900/30 border border-cyan-700/60 text-cyan-400
+                  hover:bg-cyan-900/60 hover:border-cyan-500 transition-all
+                  disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {stepIndex >= evalLineIndices.length
+                  ? sl.done
+                  : `${sl.next} (${stepIndex + 1}/${evalLineIndices.length})`}
+              </button>
+              <button
+                onClick={resetStepping}
+                className="px-2 py-1.5 text-[10px] font-mono-display tracking-widest
+                  border border-slate-700 text-slate-500
+                  hover:border-slate-400 hover:text-slate-300 transition-all"
+              >
+                {sl.reset}
+              </button>
+            </>
+          )}
+          {/* Run all button */}
+          <button
+            onClick={runCode}
+            disabled={running}
+            className="px-3 py-1.5 text-[10px] font-mono-display tracking-widest
+              bg-emerald-900/30 border border-emerald-700/60 text-emerald-400
+              hover:bg-emerald-900/60 hover:border-emerald-500 transition-all
+              disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? tr("running") : tr("runBtn")}
+          </button>
+        </div>
       </div>
 
-      {/* Editable code area */}
+      {/* Editable code area (or step-highlighted read-only view) */}
       <div className="text-[9px] text-slate-600 tracking-widest">{tr("evalHint")}</div>
-      <textarea
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        spellCheck={false}
-        className="w-full h-64 bg-slate-950 border border-slate-800 text-[10.5px] leading-5
-          font-mono-display text-slate-300 p-3 resize-y focus:outline-none
-          focus:border-emerald-700/60 transition-colors"
-      />
+      {stepMode ? (
+        <pre className="overflow-x-auto text-[10.5px] leading-5 p-3 bg-slate-950
+          border border-cyan-800/40 font-mono-display text-slate-300
+          max-h-64 overflow-y-auto">
+          {lines.map((line, i) => {
+            const evalIdx = evalLineIndices.indexOf(i);
+            const isCurrent = evalIdx !== -1 && evalIdx === stepIndex;
+            const isDone = evalIdx !== -1 && evalIdx < stepIndex;
+            return (
+              <div
+                key={i}
+                className={`flex ${
+                  isCurrent
+                    ? 'bg-cyan-900/40 border-l-2 border-cyan-400'
+                    : isDone
+                    ? 'opacity-50 border-l-2 border-emerald-800'
+                    : 'border-l-2 border-transparent'
+                }`}
+              >
+                <span className="select-none text-slate-700 w-8 shrink-0 text-right pr-3 text-[9px] leading-5">
+                  {i + 1}
+                </span>
+                <span className={isCurrent ? 'text-cyan-300 font-bold' : ''}>
+                  {line || '\u00a0'}
+                </span>
+              </div>
+            );
+          })}
+        </pre>
+      ) : (
+        <textarea
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          spellCheck={false}
+          className="w-full h-64 bg-slate-950 border border-slate-800 text-[10.5px] leading-5
+            font-mono-display text-slate-300 p-3 resize-y focus:outline-none
+            focus:border-emerald-700/60 transition-colors"
+        />
+      )}
 
-      {/* Output */}
+      {/* Step outputs */}
+      {stepMode && stepOutputs.length > 0 && (
+        <div>
+          <div className="text-[9px] text-cyan-600 tracking-widest mb-1">{sl.stepResults}</div>
+          <pre className="bg-slate-950 border border-cyan-800/40 p-3 text-[10.5px] leading-5
+            font-mono-display text-cyan-300 whitespace-pre-wrap max-h-48 overflow-y-auto">
+            {stepOutputs.join("\n")}
+          </pre>
+        </div>
+      )}
+
+      {/* Full run output */}
       {output && (
         <div>
           <div className="text-[9px] text-slate-600 tracking-widest mb-1">{tr("evalOutput")}</div>

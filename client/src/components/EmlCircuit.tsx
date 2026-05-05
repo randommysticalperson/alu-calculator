@@ -8,7 +8,9 @@
  *   U3: Differential summer       — computes exp(x) - ln(y)
  */
 
+import { useState } from "react";
 import { SchematicViewer } from "@tscircuit/schematic-viewer";
+import { PCBViewer } from "@tscircuit/pcb-viewer";
 import type { Lang } from "@/lib/i18n";
 
 interface Props {
@@ -297,7 +299,7 @@ const LABELS: Record<Lang, { title: string; subtitle: string; stage1: string; st
 
 export default function EmlCircuit({ lang }: Props) {
   const L = LABELS[lang];
-
+  const [viewMode, setViewMode] = useState<'schematic' | 'pcb'>('schematic');
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
@@ -325,17 +327,49 @@ export default function EmlCircuit({ lang }: Props) {
         </div>
       </div>
 
-      {/* tscircuit SchematicViewer */}
+      {/* View mode toggle */}
+      <div className="flex gap-1">
+        <button
+          onClick={() => setViewMode('schematic')}
+          className={`px-3 py-1 text-xs font-mono border transition-all ${
+            viewMode === 'schematic'
+              ? 'border-cyan-500 text-cyan-400 bg-cyan-950/30'
+              : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'
+          }`}
+        >
+          ⬡ SCHEMATIC
+        </button>
+        <button
+          onClick={() => setViewMode('pcb')}
+          className={`px-3 py-1 text-xs font-mono border transition-all ${
+            viewMode === 'pcb'
+              ? 'border-emerald-500 text-emerald-400 bg-emerald-950/30'
+              : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300'
+          }`}
+        >
+          ⬡ PCB LAYOUT
+        </button>
+      </div>
+      {/* tscircuit Viewer */}
       <div
         className="border border-slate-700 rounded overflow-hidden bg-white"
         style={{ height: 380 }}
       >
-        <SchematicViewer
-          circuitJson={EML_CIRCUIT_JSON as Parameters<typeof SchematicViewer>[0]['circuitJson']}
-          containerStyle={{ width: "100%", height: "100%" }}
-          editingEnabled={false}
-          clickToInteractEnabled={true}
-        />
+        {viewMode === 'schematic' ? (
+          <SchematicViewer
+            circuitJson={EML_CIRCUIT_JSON as Parameters<typeof SchematicViewer>[0]['circuitJson']}
+            containerStyle={{ width: "100%", height: "100%" }}
+            editingEnabled={false}
+            clickToInteractEnabled={true}
+          />
+        ) : (
+          <PCBViewer
+            circuitJson={EML_CIRCUIT_JSON as Parameters<typeof PCBViewer>[0]['circuitJson']}
+            height={380}
+            allowEditing={false}
+            clickToInteractEnabled={true}
+          />
+        )}
       </div>
 
       {/* Note */}

@@ -470,7 +470,11 @@ export default function Home() {
   // Persist language preference
   useEffect(() => { localStorage.setItem("alu-calc-lang", lang); }, [lang]);
 
-  const [display, setDisplay] = useState("0");
+  const [display, setDisplay] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    const p = new URLSearchParams(hash);
+    return p.get('calc') || '0';
+  });
   const [prevValue, setPrevValue] = useState<string | null>(null);
   const [operator, setOperator] = useState<string | null>(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
@@ -481,13 +485,14 @@ export default function Home() {
     const validModes: Mode[] = ['standard','alu','eml','float','spiral','primrec','analog','grammar','proof'];
     return (hashTab && validModes.includes(hashTab as Mode)) ? hashTab as Mode : 'standard';
   });
-  // Update URL hash when tab or language changes (permalink)
-  useEffect(() => {
-    const hash = `#tab=${mode}&lang=${lang}`;
-    window.history.replaceState(null, '', hash);
-  }, [mode, lang]);
-  const [aluA, setAluA] = useState("0");
-  const [aluB, setAluB] = useState("0");
+  const [aluA, setAluA] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    return new URLSearchParams(hash).get('aluA') || '0';
+  });
+  const [aluB, setAluB] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    return new URLSearchParams(hash).get('aluB') || '0';
+  });
   const [aluResult, setAluResult] = useState<string | null>(null);
   const [aluOp, setAluOp] = useState<AluOp | null>(null);
   const [aluInputFocus, setAluInputFocus] = useState<"A" | "B">("A");
@@ -497,8 +502,26 @@ export default function Home() {
   const [expression, setExpression] = useState("");
 
   // EML state
-  const [emlX, setEmlX] = useState("1");
-  const [emlY, setEmlY] = useState("1");
+  const [emlX, setEmlX] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    return new URLSearchParams(hash).get('emlX') || '1';
+  });
+  const [emlY, setEmlY] = useState(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '';
+    return new URLSearchParams(hash).get('emlY') || '1';
+  });
+  // Update URL hash when tab, language, or operand values change (permalink)
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('tab', mode);
+    params.set('lang', lang);
+    if (display && display !== '0') params.set('calc', display);
+    if (aluA && aluA !== '0') params.set('aluA', aluA);
+    if (aluB && aluB !== '0') params.set('aluB', aluB);
+    if (emlX && emlX !== '1') params.set('emlX', emlX);
+    if (emlY && emlY !== '1') params.set('emlY', emlY);
+    window.history.replaceState(null, '', `#${params.toString()}`);
+  }, [mode, lang, display, aluA, aluB, emlX, emlY]);
   const [emlOp, setEmlOp] = useState("e^x");
   const [emlResult, setEmlResult] = useState<{ result: number; steps: string[] } | null>(null);
   const [emlDirectResult, setEmlDirectResult] = useState<number | null>(null);
@@ -826,7 +849,15 @@ export default function Home() {
           {/* Permalink button */}
           <button
             onClick={() => {
-              const hash = `#tab=${mode}&lang=${lang}`;
+              const params = new URLSearchParams();
+              params.set('tab', mode);
+              params.set('lang', lang);
+              if (display && display !== '0') params.set('calc', display);
+              if (aluA && aluA !== '0') params.set('aluA', aluA);
+              if (aluB && aluB !== '0') params.set('aluB', aluB);
+              if (emlX && emlX !== '1') params.set('emlX', emlX);
+              if (emlY && emlY !== '1') params.set('emlY', emlY);
+              const hash = `#${params.toString()}`;
               const url = window.location.origin + window.location.pathname + hash;
               navigator.clipboard.writeText(url).then(() => {
                 const btn = document.getElementById('permalink-btn');

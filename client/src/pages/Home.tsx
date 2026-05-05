@@ -16,11 +16,12 @@ import { useTheme } from "@/contexts/ThemeContext";
 import EmlSpiral from "@/components/EmlSpiral";
 import PrimRecursive from "@/components/PrimRecursive";
 import AnalogComputer from "@/components/AnalogComputer";
+import EmlGrammar from "@/components/EmlGrammar";
 import { type Lang, t, langLabels, langNames, translations } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec" | "analog";
+type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec" | "analog" | "grammar";
 type AluOp = "AND" | "OR" | "XOR" | "NOT" | "SHL" | "SHR" | "NAND" | "NOR";
 
 // ─── IEEE-754 Float Utilities ─────────────────────────────────────────────────
@@ -723,6 +724,7 @@ export default function Home() {
     { id: "spiral", label: tr("tabTree"), icon: <GitBranch className="w-3.5 h-3.5" />, color: "rose" },
     { id: "primrec", label: tr("tabPrFn"), icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "teal" },
     { id: "analog", label: { en: "ANALOG", pl: "ANALOG", zh: "類比" }[lang] ?? "ANALOG", icon: <Cpu className="w-3.5 h-3.5" />, color: "cyan" },
+    { id: "grammar", label: { en: "GRAMMAR", pl: "GRAMATYKA", zh: "文法" }[lang] ?? "GRAMMAR", icon: <GitBranch className="w-3.5 h-3.5" />, color: "violet" },
   ];
 
   const colorMap: Record<string, string> = {
@@ -1439,6 +1441,9 @@ export default function Home() {
         )}
         {mode === "analog" && (
           <AnalogComputer lang={lang} />
+        )}
+        {mode === "grammar" && (
+          <EmlGrammar lang={lang} />
         )}
       </main>
 

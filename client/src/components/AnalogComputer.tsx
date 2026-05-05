@@ -99,13 +99,62 @@ const i18n: Record<Lang, Record<string, string>> = {
   },
 };
 
-// ── Oscilloscope canvas ───────────────────────────────────────────────────────
+// ── Oscilloscope canvas (with zoom + pan) ────────────────────────────────────
 function OscilloscopeCanvas({
   x, y, animPhase, lang,
 }: { x: number; y: number; animPhase: number; lang: Lang }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const tr = (k: string) => i18n[lang][k] ?? k;
 
+  // zoom: horizontal time scale multiplier (1 = default, >1 = zoomed in)
+  // panX: horizontal offset in "time units" (0 = no pan)
+  // zoomY: vertical amplitude scale multiplier
+  const [zoom, setZoom] = useState(1);
+  const [zoomY, setZoomY] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const dragRef = useRef<{ startX: number; startPan: number } | null>(null);
+
+  const resetView = () => { setZoom(1); setZoomY(1); setPanX(0); };
+
+  // Wheel: Ctrl+wheel = vertical zoom, plain wheel = horizontal zoom
+  const onWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.85 : 1.18;
+    if (e.ctrlKey || e.metaKey) {
+      setZoomY(z => Math.max(0.1, Math.min(20, z * delta)));
+    } else {
+      setZoom(z => Math.max(0.25, Math.min(32, z * delta)));
+    }
+  }, []);
+
+  // Drag to pan
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    dragRef.current = { startX: e.clientX, startPan: panX };
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+  }, [panX]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // Convert pixel drag to time-unit pan
+    const timePerPx = (2 * Math.PI / zoom) / canvas.width;
+    setPanX(dragRef.current.startPan - dx * timePerPx);
+  }, [zoom]);
+
+  const onPointerUp = useCallback(() => { dragRef.current = null; }, []);
+
+  // Attach non-passive wheel listener
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [onWheel]);
+
+  // Draw
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -119,10 +168,21 @@ function OscilloscopeCanvas({
     ctx.fillStyle = "#0a0f1a";
     ctx.fillRect(0, 0, W, H);
 
-    // Grid
+    const midY = H / 2;
+    const baseScaleY = H / 8;
+    const scaleY = baseScaleY * zoomY;
+    // Visible time window: 2π / zoom, starting at panX
+    const timeWindow = (2 * Math.PI) / zoom;
+    const tStart = panX;
+    const tEnd = panX + timeWindow;
+
+    // Grid — draw vertical lines at π/2 intervals
+    const gridStep = Math.PI / 2;
+    const firstGrid = Math.ceil(tStart / gridStep) * gridStep;
     ctx.strokeStyle = "#1e3a2e";
     ctx.lineWidth = 0.5;
-    for (let gx = 0; gx <= W; gx += W / 8) {
+    for (let gt = firstGrid; gt <= tEnd; gt += gridStep) {
+      const gx = ((gt - tStart) / timeWindow) * W;
       ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, H); ctx.stroke();
     }
     for (let gy = 0; gy <= H; gy += H / 4) {
@@ -131,22 +191,17 @@ function OscilloscopeCanvas({
     // Zero line
     ctx.strokeStyle = "#2d4a3e";
     ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(W, midY); ctx.stroke();
 
-    const midY = H / 2;
-    const scaleY = H / 8; // 1 unit = scaleY pixels
-
-    // Compute values
+    // Compute steady-state values
     const expX = Math.exp(x);
     const lnY = y > 0 ? Math.log(y) : 0;
     const emlOut = expX - lnY;
 
-    // Clamp helper
     const clamp = (v: number) => Math.max(-midY + 4, Math.min(midY - 4, v));
 
-    // Draw 4 traces
     const traces: { label: string; color: string; fn: (t: number) => number }[] = [
-      { label: tr("signalX"),   color: "#64748b", fn: () => x },
+      { label: tr("signalX"),    color: "#64748b", fn: () => x },
       { label: tr("signalExpX"), color: "#06b6d4", fn: () => expX },
       { label: tr("signalLnY"), color: "#f59e0b", fn: () => lnY },
       { label: tr("signalOut"), color: "#10b981", fn: () => emlOut },
@@ -157,8 +212,7 @@ function OscilloscopeCanvas({
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       for (let px = 0; px < W; px++) {
-        const t = (px / W) * 2 * Math.PI + animPhase;
-        // Add a gentle sine ripple to simulate analog "live" signal
+        const t = tStart + (px / W) * timeWindow + animPhase;
         const ripple = 0.05 * Math.sin(t * 3);
         const val = fn(t) + ripple;
         const py = midY - clamp(val * scaleY);
@@ -173,16 +227,73 @@ function OscilloscopeCanvas({
       ctx.font = "9px 'Fira Code', monospace";
       ctx.fillText(`─ ${label}`, 6, 12 + i * 13);
     });
-  }, [x, y, animPhase, lang]);
+
+    // Zoom/pan HUD
+    ctx.fillStyle = "#334155";
+    ctx.font = "8px 'Fira Code', monospace";
+    ctx.fillText(`H×${zoom.toFixed(1)}  V×${zoomY.toFixed(1)}  pan:${panX.toFixed(2)}`, W - 130, H - 5);
+  }, [x, y, animPhase, lang, zoom, zoomY, panX]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={520}
-      height={160}
-      className="w-full border border-emerald-900/40"
-      style={{ imageRendering: "pixelated" }}
-    />
+    <div className="space-y-1.5">
+      {/* Controls row */}
+      <div className="flex items-center gap-2 flex-wrap text-[10px] font-mono-display">
+        <span className="text-slate-600">
+          { { en: "Scroll=H-zoom · Ctrl+Scroll=V-zoom · Drag=pan",
+              pl: "Scroll=zoom H · Ctrl+Scroll=zoom V · Przeciągnij=przesunięcie",
+              zh: "滾輪=水平縮放 · Ctrl+滾輪=垂直縮放 · 拖曳=平移" }[lang] ?? "Scroll=zoom · Drag=pan" }
+        </span>
+        <div className="flex items-center gap-1 ml-auto">
+          <button
+            onClick={() => setZoom(z => Math.min(32, z * 1.5))}
+            className="px-2 py-0.5 border border-slate-700 text-slate-400 hover:border-emerald-600 hover:text-emerald-400 transition-all"
+            title="Zoom in (horizontal)"
+          >H+</button>
+          <button
+            onClick={() => setZoom(z => Math.max(0.25, z / 1.5))}
+            className="px-2 py-0.5 border border-slate-700 text-slate-400 hover:border-emerald-600 hover:text-emerald-400 transition-all"
+            title="Zoom out (horizontal)"
+          >H−</button>
+          <button
+            onClick={() => setZoomY(z => Math.min(20, z * 1.5))}
+            className="px-2 py-0.5 border border-slate-700 text-slate-400 hover:border-cyan-600 hover:text-cyan-400 transition-all"
+            title="Zoom in (vertical)"
+          >V+</button>
+          <button
+            onClick={() => setZoomY(z => Math.max(0.1, z / 1.5))}
+            className="px-2 py-0.5 border border-slate-700 text-slate-400 hover:border-cyan-600 hover:text-cyan-400 transition-all"
+            title="Zoom out (vertical)"
+          >V−</button>
+          <button
+            onClick={resetView}
+            className="px-2 py-0.5 border border-slate-600 text-slate-500 hover:border-red-600 hover:text-red-400 transition-all"
+            title="Reset view"
+          >{ { en: "RESET", pl: "RESET", zh: "重置" }[lang] ?? "RESET" }</button>
+        </div>
+        <div className="text-slate-600 w-full text-right">
+          H×<span className="text-emerald-400">{zoom.toFixed(2)}</span>
+          &nbsp;V×<span className="text-cyan-400">{zoomY.toFixed(2)}</span>
+          &nbsp;pan:<span className="text-amber-400">{panX.toFixed(2)}</span>
+        </div>
+      </div>
+      {/* Canvas */}
+      <div
+        ref={wrapRef}
+        className="cursor-crosshair select-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        <canvas
+          ref={canvasRef}
+          width={520}
+          height={180}
+          className="w-full border border-emerald-900/40"
+          style={{ imageRendering: "pixelated", touchAction: "none" }}
+        />
+      </div>
+    </div>
   );
 }
 

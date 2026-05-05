@@ -12,9 +12,14 @@
  *   - Agda sketch tab
  *   - Fully localized EN/PL/繁中
  */
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Lean4Compiler } from "@/lib/lean4ts-browser";
 import type { Lang } from "@/lib/i18n";
+import {
+  eml, euler, emlExp, emlLn, emlId, emlNeg, emlInv, emlAdd, emlMul, emlSub, emlDiv,
+  evalExpr, sizeExpr, depthExpr, printExpr, ENode, EConst, EVar, PRESETS, AGDA_PROOF_SOURCE,
+  type EmlExpr,
+} from "@/lib/agda-eml";
 
 // ── i18n ──────────────────────────────────────────────────────────────────────
 const i18n: Record<Lang, Record<string, string>> = {
@@ -32,7 +37,18 @@ const i18n: Record<Lang, Record<string, string>> = {
       "because exp and ln are E²-functions and subtraction is PR.",
     lean4Title: "LEAN 4",
     coqTitle: "COQ",
-    agdaTitle: "AGDA",
+    agdaTitle: "▶ AGDA",
+    agdaLiveTitle: "AGDA LIVE EVALUATOR",
+    agdaLiveSubtitle: "Pre-compiled via Agda JS backend (agda --js --js-es6) · Source: EmlProof.agda",
+    agdaLiveHint: "Select a preset or type an EML expression tree and click EVALUATE:",
+    agdaEvalBtn: "▶ EVALUATE",
+    agdaEvalOutput: "RESULT",
+    agdaExprLabel: "Expression tree (S → 1 | eml(S,S)):",
+    agdaXLabel: "x value:",
+    agdaPresets: "PRESETS",
+    agdaSource: "AGDA SOURCE",
+    agdaPadBtn: "OPEN IN AGDA PAD ↗",
+    agdaDownload: "↓ DOWNLOAD .agda",
     notesTitle: "PROOF NOTES",
     layer1: "Layer 1 — Structural (term algebra over ℕ)",
     layer2: "Layer 2 — Semantic (real-valued functions, Grzegorczyk E²)",
@@ -67,7 +83,18 @@ const i18n: Record<Lang, Record<string, string>> = {
       "ponieważ exp i ln są funkcjami E², a odejmowanie jest PR.",
     lean4Title: "LEAN 4",
     coqTitle: "COQ",
-    agdaTitle: "AGDA",
+    agdaTitle: "▶ AGDA",
+    agdaLiveTitle: "EWALUATOR AGDA NA ŻYWO",
+    agdaLiveSubtitle: "Wstępnie skompilowany przez backend JS Agda (agda --js --js-es6) · Źródło: EmlProof.agda",
+    agdaLiveHint: "Wybierz preset lub wpisz wyrażenie EML i kliknij OCEŃ:",
+    agdaEvalBtn: "▶ OCEŃ",
+    agdaEvalOutput: "WYNIK",
+    agdaExprLabel: "Drzewo wyrażeń (S → 1 | eml(S,S)):",
+    agdaXLabel: "Wartość x:",
+    agdaPresets: "PRESETY",
+    agdaSource: "KOD AGDA",
+    agdaPadBtn: "OTWÓRZ W AGDA PAD ↗",
+    agdaDownload: "↓ POBIERZ .agda",
     notesTitle: "UWAGI DO DOWODU",
     layer1: "Warstwa 1 — Strukturalna (algebra termów nad ℕ)",
     layer2: "Warstwa 2 — Semantyczna (funkcje rzeczywiste, Grzegorczyk E²)",
@@ -102,7 +129,18 @@ const i18n: Record<Lang, Record<string, string>> = {
       "因為 exp 和 ln 是 E² 函數，而減法是 PR。",
     lean4Title: "LEAN 4",
     coqTitle: "COQ",
-    agdaTitle: "AGDA",
+    agdaTitle: "▶ AGDA",
+    agdaLiveTitle: "AGDA 即時求值器",
+    agdaLiveSubtitle: "透過 Agda JS 後端預編譯（agda --js --js-es6）· 來源：EmlProof.agda",
+    agdaLiveHint: "選擇預設或輸入 EML 表達式樹，然後點擊求值：",
+    agdaEvalBtn: "▶ 求值",
+    agdaEvalOutput: "結果",
+    agdaExprLabel: "表達式樹（S → 1 | eml(S,S)）：",
+    agdaXLabel: "x 值：",
+    agdaPresets: "預設",
+    agdaSource: "AGDA 原始碼",
+    agdaPadBtn: "在 AGDA PAD 中開啟 ↗",
+    agdaDownload: "↓ 下載 .agda",
     notesTitle: "證明備注",
     layer1: "第一層 — 結構層（ℕ 上的項代數）",
     layer2: "第二層 — 語義層（實值函數，Grzegorczyk E²）",
@@ -651,6 +689,195 @@ function JsCoqPanel({ lang }: { lang: Lang }) {
   );
 }
 
+// ── Agda Live Panel ──────────────────────────────────────────────────────────
+function AgdaLivePanel({ lang, tr }: { lang: Lang; tr: (k: string) => string }) {
+  const [xVal, setXVal] = useState("2");
+  const [selectedPreset, setSelectedPreset] = useState<string>("exp");
+  const [customExpr, setCustomExpr] = useState("");
+  const [useCustom, setUseCustom] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [showSource, setShowSource] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Parse a simple EML expression string like "eml(x, 1)" or "eml(1, eml(eml(1,x),1))"
+  const parseEmlExpr = (s: string): EmlExpr | null => {
+    s = s.trim();
+    if (s === "1") return EConst;
+    if (s === "x") return EVar;
+    const m = s.match(/^eml\s*\((.+)\)$/);
+    if (!m) return null;
+    // split on the top-level comma
+    let depth = 0, splitIdx = -1;
+    for (let i = 0; i < m[1].length; i++) {
+      if (m[1][i] === "(") depth++;
+      else if (m[1][i] === ")") depth--;
+      else if (m[1][i] === "," && depth === 0) { splitIdx = i; break; }
+    }
+    if (splitIdx === -1) return null;
+    const lStr = m[1].slice(0, splitIdx).trim();
+    const rStr = m[1].slice(splitIdx + 1).trim();
+    const l = parseEmlExpr(lStr);
+    const r = parseEmlExpr(rStr);
+    if (!l || !r) return null;
+    return ENode(l, r);
+  };
+
+  const evaluate = () => {
+    const x = parseFloat(xVal);
+    if (isNaN(x)) { setResult("Error: x must be a number"); return; }
+    try {
+      if (useCustom && customExpr.trim()) {
+        const expr = parseEmlExpr(customExpr.trim());
+        if (!expr) { setResult("Error: invalid EML expression syntax"); return; }
+        const val = evalExpr(expr, x);
+        const sz = sizeExpr(expr);
+        const dp = depthExpr(expr);
+        const pp = printExpr(expr);
+        setResult(`eval(${pp}, x=${x}) = ${val.toPrecision(8)}\nSize: ${sz} nodes | Depth: ${dp}`);
+      } else {
+        const preset = PRESETS[selectedPreset];
+        if (!preset) return;
+        const val = evalExpr(preset.expr, x);
+        const sz = sizeExpr(preset.expr);
+        const dp = depthExpr(preset.expr);
+        const pp = printExpr(preset.expr);
+        // also compute via direct JS for verification
+        const directFns: Record<string, (x: number) => number> = {
+          e:   () => euler,
+          exp: (v) => emlExp(v),
+          ln:  (v) => emlLn(v),
+          id:  (v) => emlId(v),
+          neg: (v) => emlNeg(v),
+          inv: (v) => emlInv(v),
+        };
+        const direct = directFns[selectedPreset]?.(x);
+        const directStr = direct !== undefined ? `\nDirect EML fn: ${direct.toPrecision(8)}` : "";
+        setResult(`${preset.name}(x=${x})\n= eval(${pp}, ${x})\n= ${val.toPrecision(8)}${directStr}\nSize: ${sz} nodes | Depth: ${dp}`);
+      }
+    } catch (e) {
+      setResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+
+  const copySource = () => {
+    navigator.clipboard.writeText(AGDA_PROOF_SOURCE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Header */}
+      <div className="border border-violet-700/40 bg-violet-900/10 p-3">
+        <div className="text-[10px] text-violet-400 tracking-widest mb-1">{tr("agdaLiveTitle")}</div>
+        <div className="text-[11px] text-slate-400">{tr("agdaLiveSubtitle")}</div>
+      </div>
+      {/* Hint */}
+      <div className="text-[10px] text-slate-500">{tr("agdaLiveHint")}</div>
+      {/* Presets */}
+      <div>
+        <div className="text-[9px] text-slate-600 tracking-widest mb-1.5">{tr("agdaPresets")}</div>
+        <div className="flex flex-wrap gap-1">
+          {Object.entries(PRESETS).map(([key, p]) => (
+            <button
+              key={key}
+              onClick={() => { setSelectedPreset(key); setUseCustom(false); }}
+              className={`px-2 py-1 text-[10px] font-mono-display tracking-wide border transition-all
+                ${ !useCustom && selectedPreset === key
+                  ? "border-violet-500 text-violet-300 bg-violet-900/20"
+                  : "border-slate-700 text-slate-500 hover:border-violet-700 hover:text-violet-400"
+                }`}
+            >
+              {p.name}
+            </button>
+          ))}
+          <button
+            onClick={() => setUseCustom(true)}
+            className={`px-2 py-1 text-[10px] font-mono-display tracking-wide border transition-all
+              ${ useCustom
+                ? "border-amber-500 text-amber-300 bg-amber-900/20"
+                : "border-slate-700 text-slate-500 hover:border-amber-700 hover:text-amber-400"
+              }`}
+          >
+            custom
+          </button>
+        </div>
+      </div>
+      {/* Custom input */}
+      {useCustom && (
+        <div>
+          <div className="text-[9px] text-slate-600 tracking-widest mb-1">{tr("agdaExprLabel")}</div>
+          <input
+            value={customExpr}
+            onChange={(e) => setCustomExpr(e.target.value)}
+            placeholder="eml(x, 1)"
+            className="w-full bg-slate-900 border border-slate-700 text-emerald-300 font-mono text-[11px] px-2 py-1.5 focus:outline-none focus:border-violet-500"
+          />
+        </div>
+      )}
+      {/* X value + evaluate */}
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
+          <div className="text-[9px] text-slate-600 tracking-widest mb-1">{tr("agdaXLabel")}</div>
+          <input
+            type="number"
+            value={xVal}
+            onChange={(e) => setXVal(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-700 text-cyan-300 font-mono text-[11px] px-2 py-1.5 focus:outline-none focus:border-violet-500"
+          />
+        </div>
+        <button
+          onClick={evaluate}
+          className="px-4 py-1.5 text-[10px] font-mono-display tracking-widest border border-violet-600 text-violet-400 hover:bg-violet-900/30 transition-all"
+        >
+          {tr("agdaEvalBtn")}
+        </button>
+      </div>
+      {/* Result */}
+      {result !== null && (
+        <div className="border border-violet-700/30 bg-violet-900/10 p-3">
+          <div className="text-[9px] text-violet-500 tracking-widest mb-1">{tr("agdaEvalOutput")}</div>
+          <pre className="text-[11px] text-violet-300 font-mono whitespace-pre-wrap">{result}</pre>
+        </div>
+      )}
+      {/* Agda source toggle */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => setShowSource((v) => !v)}
+          className="px-3 py-1 text-[9px] font-mono-display tracking-widest border border-slate-700 text-slate-500 hover:text-violet-400 hover:border-violet-700 transition-all"
+        >
+          {showSource ? "▲" : "▼"} {tr("agdaSource")}
+        </button>
+        <button
+          onClick={() => downloadFile(AGDA_PROOF_SOURCE, "EmlProof.agda", "text/plain")}
+          className="px-3 py-1 text-[9px] font-mono-display tracking-widest border border-slate-700 text-slate-500 hover:text-violet-400 hover:border-violet-700 transition-all"
+        >
+          {tr("agdaDownload")}
+        </button>
+        <a
+          href="https://agda-pad.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-1 text-[9px] font-mono-display tracking-widest border border-violet-800 text-violet-600 hover:text-violet-400 hover:border-violet-500 transition-all"
+        >
+          {tr("agdaPadBtn")}
+        </a>
+        <button
+          onClick={copySource}
+          className="px-3 py-1 text-[9px] font-mono-display tracking-widest border border-slate-700 text-slate-500 hover:text-violet-400 hover:border-violet-700 transition-all"
+        >
+          {copied ? "✓ COPIED" : "COPY SOURCE"}
+        </button>
+      </div>
+      {showSource && (
+        <pre className="bg-slate-950 border border-slate-800 p-3 text-[10px] text-violet-300 font-mono overflow-x-auto whitespace-pre leading-relaxed max-h-80 overflow-y-auto">
+          {AGDA_PROOF_SOURCE}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 // ── Download helpers ──────────────────────────────────────────────────────────
 function downloadFile(content: string, filename: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -762,9 +989,7 @@ export default function FormalProof({ lang }: { lang: Lang }) {
           <CodeBlock code={COQ_PROOF} lang="coq" copyLabel={tr("copyBtn")} copiedLabel={tr("copied")} />
         </div>
       )}
-      {tab === "agda" && (
-        <CodeBlock code={AGDA_SKETCH} lang="agda" copyLabel={tr("copyBtn")} copiedLabel={tr("copied")} />
-      )}
+      {tab === "agda" && <AgdaLivePanel lang={lang} tr={tr} />}
 
       {/* References */}
       <div className="border border-slate-800 bg-slate-900/20 p-3">

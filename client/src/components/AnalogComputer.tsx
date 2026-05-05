@@ -154,14 +154,30 @@ function OscilloscopeCanvas({
     return () => el.removeEventListener("wheel", onWheel);
   }, [onWheel]);
 
+  // Resize canvas to match container CSS width at device pixel ratio
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = wrap.clientWidth || 520;
+    const cssH = 160;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+  }, []);
+
   // Draw
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = canvas.width;
-    const H = canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = canvas.width / dpr;
+    const H = canvas.height / dpr;
     ctx.clearRect(0, 0, W, H);
 
     // Background
@@ -279,7 +295,7 @@ function OscilloscopeCanvas({
       {/* Canvas */}
       <div
         ref={wrapRef}
-        className="cursor-crosshair select-none"
+        className="cursor-crosshair select-none w-full"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -287,10 +303,8 @@ function OscilloscopeCanvas({
       >
         <canvas
           ref={canvasRef}
-          width={520}
-          height={180}
-          className="w-full border border-emerald-900/40"
-          style={{ imageRendering: "pixelated", touchAction: "none" }}
+          className="block w-full border border-emerald-900/40"
+          style={{ touchAction: "none" }}
         />
       </div>
     </div>

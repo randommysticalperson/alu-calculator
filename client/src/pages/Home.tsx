@@ -15,11 +15,12 @@ import { Calculator, Cpu, RotateCcw, Delete, FlaskConical, Binary, GitBranch, Fu
 import { useTheme } from "@/contexts/ThemeContext";
 import EmlSpiral from "@/components/EmlSpiral";
 import PrimRecursive from "@/components/PrimRecursive";
+import AnalogComputer from "@/components/AnalogComputer";
 import { type Lang, t, langLabels, langNames, translations } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec";
+type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec" | "analog";
 type AluOp = "AND" | "OR" | "XOR" | "NOT" | "SHL" | "SHR" | "NAND" | "NOR";
 
 // ─── IEEE-754 Float Utilities ─────────────────────────────────────────────────
@@ -721,6 +722,7 @@ export default function Home() {
     { id: "float", label: tr("tabFloat"), icon: <Binary className="w-3.5 h-3.5" />, color: "amber" },
     { id: "spiral", label: tr("tabTree"), icon: <GitBranch className="w-3.5 h-3.5" />, color: "rose" },
     { id: "primrec", label: tr("tabPrFn"), icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "teal" },
+    { id: "analog", label: { en: "ANALOG", pl: "ANALOG", zh: "類比" }[lang] ?? "ANALOG", icon: <Cpu className="w-3.5 h-3.5" />, color: "cyan" },
   ];
 
   const colorMap: Record<string, string> = {
@@ -743,7 +745,7 @@ export default function Home() {
           <span className="font-mono-display text-emerald-400 font-semibold tracking-wider text-xs">
             {tr("appTitle")}
           </span>
-          <span className="text-slate-600 text-[10px] font-mono-display">v3.2 · {tr("appSubtitle")}</span>
+          <span className="text-slate-600 text-[10px] font-mono-display">v3.7 · {tr("appSubtitle")}</span>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Language switcher */}
@@ -1434,6 +1436,9 @@ export default function Home() {
             </div>
             <PrimRecursive lang={lang} />
           </div>
+        )}
+        {mode === "analog" && (
+          <AnalogComputer lang={lang} />
         )}
       </main>
 

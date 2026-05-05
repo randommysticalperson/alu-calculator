@@ -379,6 +379,114 @@ function evalBuiltin(name: string, env: Env): Value | undefined {
         }
         return vNeutral(nApp(nApp(nVar('List.replicate'), n), val));
       }));
+    // ── Float math operations (for EML) ──────────────────────────────────────
+    case 'Float.exp':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.exp(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.exp'), x));
+      });
+    case 'Float.log':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') {
+          const v = Number(x.value);
+          if (v > 0) return vFloat(Math.log(v));
+        }
+        return vNeutral(nApp(nVar('Float.log'), x));
+      });
+    case 'Float.sub':
+      return vLam((a: Value) => vLam((b: Value) => {
+        if (a.kind === 'VLit' && b.kind === 'VLit')
+          return vFloat(Number(a.value) - Number(b.value));
+        return vNeutral(nApp(nApp(nVar('Float.sub'), a), b));
+      }));
+    case 'Float.add':
+      return vLam((a: Value) => vLam((b: Value) => {
+        if (a.kind === 'VLit' && b.kind === 'VLit')
+          return vFloat(Number(a.value) + Number(b.value));
+        return vNeutral(nApp(nApp(nVar('Float.add'), a), b));
+      }));
+    case 'Float.mul':
+      return vLam((a: Value) => vLam((b: Value) => {
+        if (a.kind === 'VLit' && b.kind === 'VLit')
+          return vFloat(Number(a.value) * Number(b.value));
+        return vNeutral(nApp(nApp(nVar('Float.mul'), a), b));
+      }));
+    case 'Float.div':
+      return vLam((a: Value) => vLam((b: Value) => {
+        if (a.kind === 'VLit' && b.kind === 'VLit')
+          return vFloat(Number(a.value) / Number(b.value));
+        return vNeutral(nApp(nApp(nVar('Float.div'), a), b));
+      }));
+    case 'Float.ofNat':
+    case 'Float.ofInt':
+      return vLam((n: Value) => {
+        if (n.kind === 'VLit') return vFloat(Number(n.value));
+        return vNeutral(nApp(nVar('Float.ofNat'), n));
+      });
+    case 'Float.toNat':
+      return vLam((n: Value) => {
+        if (n.kind === 'VLit') return vNat(Math.max(0, Math.floor(Number(n.value))));
+        return vNeutral(nApp(nVar('Float.toNat'), n));
+      });
+    case 'Float.sqrt':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.sqrt(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.sqrt'), x));
+      });
+    case 'Float.sin':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.sin(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.sin'), x));
+      });
+    case 'Float.cos':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.cos(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.cos'), x));
+      });
+    case 'Float.tan':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.tan(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.tan'), x));
+      });
+    case 'Float.abs':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.abs(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.abs'), x));
+      });
+    case 'Float.floor':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.floor(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.floor'), x));
+      });
+    case 'Float.ceil':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vFloat(Math.ceil(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.ceil'), x));
+      });
+    case 'Float.pow':
+      return vLam((a: Value) => vLam((b: Value) => {
+        if (a.kind === 'VLit' && b.kind === 'VLit')
+          return vFloat(Math.pow(Number(a.value), Number(b.value)));
+        return vNeutral(nApp(nApp(nVar('Float.pow'), a), b));
+      }));
+    case 'Float.pi':
+      return vFloat(Math.PI);
+    case 'Float.e':
+      return vFloat(Math.E);
+    case 'Float.isNaN':
+      return vLam((x: Value) => {
+        if (x.kind === 'VLit') return vBool(isNaN(Number(x.value)));
+        return vNeutral(nApp(nVar('Float.isNaN'), x));
+      });
+    // eml operator directly usable without def
+    case 'eml':
+      return vLam((x: Value) => vLam((y: Value) => {
+        if (x.kind === 'VLit' && y.kind === 'VLit') {
+          const xv = Number(x.value), yv = Number(y.value);
+          return vFloat(Math.exp(xv) - Math.log(yv));
+        }
+        return vNeutral(nApp(nApp(nVar('eml'), x), y));
+      }));
     default:
       // Not a built-in
       return undefined;

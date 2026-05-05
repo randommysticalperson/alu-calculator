@@ -17,11 +17,12 @@ import EmlSpiral from "@/components/EmlSpiral";
 import PrimRecursive from "@/components/PrimRecursive";
 import AnalogComputer from "@/components/AnalogComputer";
 import EmlGrammar from "@/components/EmlGrammar";
+import FormalProof from "@/components/FormalProof";
 import { type Lang, t, langLabels, langNames, translations } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec" | "analog" | "grammar";
+type Mode = "standard" | "alu" | "eml" | "float" | "spiral" | "primrec" | "analog" | "grammar" | "proof";
 type AluOp = "AND" | "OR" | "XOR" | "NOT" | "SHL" | "SHR" | "NAND" | "NOR";
 
 // ─── IEEE-754 Float Utilities ─────────────────────────────────────────────────
@@ -725,6 +726,7 @@ export default function Home() {
     { id: "primrec", label: tr("tabPrFn"), icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "teal" },
     { id: "analog", label: { en: "ANALOG", pl: "ANALOG", zh: "類比" }[lang] ?? "ANALOG", icon: <Cpu className="w-3.5 h-3.5" />, color: "cyan" },
     { id: "grammar", label: { en: "GRAMMAR", pl: "GRAMATYKA", zh: "文法" }[lang] ?? "GRAMMAR", icon: <GitBranch className="w-3.5 h-3.5" />, color: "violet" },
+    { id: "proof", label: { en: "PROOF", pl: "DOWÓD", zh: "證明" }[lang] ?? "PROOF", icon: <FunctionSquare className="w-3.5 h-3.5" />, color: "amber" },
   ];
 
   const colorMap: Record<string, string> = {
@@ -1444,6 +1446,9 @@ export default function Home() {
         )}
         {mode === "grammar" && (
           <EmlGrammar lang={lang} />
+        )}
+        {mode === "proof" && (
+          <FormalProof lang={lang} />
         )}
       </main>
 
